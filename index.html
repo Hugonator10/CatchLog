@@ -1,0 +1,4520 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <!-- Wichtig für Handys: Seite wird in echter Handy-Breite dargestellt, kein Zoom-Herauszoomen -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catch Log</title>
+
+  <!-- Google Fonts: Fraunces (Überschriften), Inter (Fließtext), IBM Plex Mono (Zahlen/Zeiten) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Leaflet: Karten-Bibliothek für die Standort-Funktion (kostenlos, kein API-Key nötig) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    /* ---------- Design-System: zentrale Werte an einer Stelle ---------- */
+    :root {
+      /* Helles Blau/Türkis/Orange-Farbschema (siehe Prompts/farbschema prompt
+         1.02.md) - löst das vorherige dunkle Cyan-Schema komplett ab. Layout,
+         Schriften und Icon-Stil bleiben unverändert, es geht nur um die Farbwerte.
+         --farbe-hintergrund ist ein 8%-Tint von #6CDAEE auf Weiß (siehe Erklärung
+         am Ende des Umsetzungs-Berichts). */
+      --farbe-hintergrund: #F3FCFE;
+      --farbe-primaer: #0074E1;
+      --farbe-primaer-dunkel: #005AB0;
+      --farbe-sekundaer: #1B9CE5;
+      --farbe-akzent: #F79E02; /* bewusst sparsam einsetzen - siehe Kommentare bei den jeweiligen Stellen */
+      --farbe-akzent-text: #0F2942; /* dunkles Navy auf dem Orange-Untergrund (Weiß hätte nur ~2,1:1 Kontrast) */
+      --farbe-text: #0F2942;
+      --farbe-text-gedaempft: rgba(15, 41, 66, 0.62);
+      --farbe-karte: #FFFFFF;
+      --farbe-karte-border: #D6EEF7;
+      --farbe-loeschen: #D8483D;
+
+      --schrift-serif: "Fraunces", Georgia, serif;
+      --schrift-sans: "Inter", -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      --schrift-mono: "IBM Plex Mono", "Courier New", monospace;
+    }
+
+    * {
+      box-sizing: border-box; /* Padding wird in die Breite eingerechnet, nicht dazu addiert */
+    }
+
+    body {
+      font-family: var(--schrift-sans);
+      background-color: var(--farbe-hintergrund);
+      color: var(--farbe-text);
+      margin: 0;
+      /* Muss zur tatsächlichen Höhe der fixen Bottom-Nav passen (64px Tab-Zeile
+         + deren eigenes Safe-Area-Padding), sonst verschwindet Inhalt dahinter -
+         plus etwas Luft, damit der letzte Inhalt nicht direkt an der Nav klebt. */
+      padding: 0 0 calc(64px + max(12px, env(safe-area-inset-bottom)) + 16px) 0;
+      font-size: 17px; /* groß genug, um am Wasser gut lesbar zu sein */
+      line-height: 1.5;
+    }
+
+    header {
+      /* #0074E1 bietet selbst genug Kontrast zum hellen Header-Text (~4,8:1,
+         WCAG AA) - anders als beim vorigen, helleren Dunkel-Schema-Primärton
+         braucht es hier keinen Ausweich-Farbton mehr. */
+      background-color: var(--farbe-primaer);
+      color: #F7F3E6;
+      padding: 26px 16px 20px;
+      text-align: center;
+    }
+
+    header h1 {
+      margin: 0;
+      font-family: var(--schrift-serif);
+      font-weight: 700;
+      font-size: 26px;
+      letter-spacing: 0.2px;
+    }
+
+    /* ---------- Signatur-Element: handgezeichnete Wellenlinie ---------- */
+    /* Wird als wiederkehrender Trenner benutzt: kräftig direkt unter dem Header,
+       dezenter (kleiner + blasser) z. B. im Formular-Dialog.
+       Die Kurve steckt als data-URI-SVG im background-image, deshalb kann sie
+       keine CSS-Variable referenzieren - die Farbe (#0074E1 = --farbe-primaer)
+       und die Opacity (0.4) sind hier fest verdrahtet und müssten von Hand
+       nachgezogen werden, falls sich --farbe-primaer je ändert. */
+    .wellenlinie {
+      position: relative; /* Bezugsrahmen für die absolut positionierten Fische */
+      height: 48px; /* unter dem Header: großzügig genug für die schwimmenden Fische */
+      overflow: hidden; /* Fische dürfen den Wellenbereich nie verlassen */
+      /* Ein einzelner, breiter Wellenzug (120px Periode) statt vieler enger
+         Zacken - wirkt dadurch wie eine ruhige, große Wasseroberfläche. */
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='48' viewBox='0 0 120 48'%3E%3Cpath d='M0,28 C20,18 40,18 60,28 C80,38 100,38 120,28' fill='none' stroke='%230074E1' stroke-opacity='0.4' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: repeat-x;
+      background-position: center;
+      background-size: 120px 48px;
+    }
+
+    .wellenlinie--dezent {
+      height: 14px;
+      opacity: 0.55;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='20' viewBox='0 0 40 20'%3E%3Cpath d='M0,11 C5,3 9,3 14,11 C19,19 23,19 28,11 C33,3 37,3 40,11' fill='none' stroke='%2310E7DC' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-size: 32px 14px;
+      margin: 4px 0 14px;
+    }
+
+    /* ---------- Animierte Fische in der Wellenlinie (siehe aktualisiereWellenFische()) ---------- */
+    /* Ein Fisch pro unterschiedlicher Fischart im Logbuch, schwimmt endlos
+       durch den Wellenbereich. Zwei parallele Bewegungen (per JS als
+       kombinierte "animation"-Kurzschreibweise inline gesetzt, siehe
+       aktualisiereWellenFische()): seitwärts über @keyframes auf "left",
+       plus ein leichtes Auf-und-Ab über @keyframes auf "transform:
+       translateY(...)" auf demselben Element, damit die Fische mit der
+       Welle mitschwimmen statt stur gerade zu queren. "transform" auf dem
+       äußeren Element ist dadurch für die Wipp-Bewegung reserviert - das
+       Spiegeln der Fischrichtung sitzt deshalb auf dem inneren <svg>
+       (siehe .wellen-fisch--gespiegelt unten), damit es sich nicht mit der
+       translateY-Animation in die Quere kommt. */
+    .wellen-fisch {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      color: var(--farbe-primaer);
+      opacity: 0.5;
+      pointer-events: none; /* rein dekorativ, blockiert keine Klicks */
+    }
+
+    .wellen-fisch svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Grundausrichtung des Fisch-Icons ist "Kopf nach links" - passt so
+       direkt zur Schwimmrichtung nach links. Für die Gegenrichtung wird das
+       Icon gespiegelt, damit der Kopf wieder in Bewegungsrichtung zeigt. */
+    .wellen-fisch--gespiegelt svg {
+      transform: scaleX(-1);
+    }
+
+    @keyframes wellen-fisch-nach-links {
+      from { left: 108%; }
+      to { left: -18%; }
+    }
+
+    @keyframes wellen-fisch-nach-rechts {
+      from { left: -18%; }
+      to { left: 108%; }
+    }
+
+    /* Sanftes Auf-und-Ab, angelehnt an die Wellenbewegung im Hintergrund -
+       Amplitude bewusst klein, damit die Fische nicht aus ihrer Spur "hüpfen". */
+    @keyframes wellen-fisch-wippen {
+      0%, 100% { transform: translateY(-3px); }
+      50% { transform: translateY(3px); }
+    }
+
+    /* ---------- Layout ---------- */
+    main {
+      max-width: 520px; /* auf größeren Bildschirmen nicht zu breit werden */
+      margin: 0 auto;
+      /* unten genug Platz für die feste Bottom-Nav (~64px) + den schwebenden
+         Neuer-Fang-Button, damit nichts vom Inhalt verdeckt wird */
+      padding: 16px 16px 96px;
+    }
+
+    section {
+      background: var(--farbe-karte);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 16px;
+      padding: 20px 18px;
+      box-shadow: 0 1px 3px rgba(15, 41, 66, 0.06);
+    }
+
+    h2 {
+      margin-top: 0;
+      margin-bottom: 18px;
+      font-family: var(--schrift-serif);
+      font-weight: 600;
+      font-size: 21px;
+      color: var(--farbe-primaer);
+    }
+
+    /* ---------- Dashboard-Startansicht "Übersicht" ---------- */
+    .abschnitt-titel {
+      font-family: var(--schrift-serif);
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--farbe-primaer);
+      margin: 22px 0 12px;
+    }
+
+    .abschnitt-titel:first-child {
+      margin-top: 0;
+    }
+
+    .kennzahlen-raster {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* immer 2x2, auch auf breiten Bildschirmen bleibt main schmal genug */
+      gap: 10px;
+    }
+
+    .kennzahl-karte {
+      background: var(--farbe-karte);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 14px;
+      padding: 14px 14px 12px;
+      box-shadow: 0 1px 3px rgba(15, 41, 66, 0.05);
+    }
+
+    .kennzahl-label {
+      font-family: var(--schrift-sans);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--farbe-text-gedaempft);
+      margin-bottom: 6px;
+    }
+
+    .kennzahl-wert {
+      font-family: var(--schrift-mono);
+      font-size: 24px;
+      font-weight: 600;
+      color: var(--farbe-text);
+      line-height: 1.2;
+    }
+
+    .kennzahl-wert .einheit {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Kompakte Vorschau der letzten 3 Fänge - reduzierte Variante von .fang-eintrag */
+    .letzte-faenge-liste {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* antippbar: öffnet den Fang zum Ansehen/Bearbeiten (bearbeiteFang()) */
+    .mini-fang-karte {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--farbe-karte);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 3px rgba(15, 41, 66, 0.05);
+      cursor: pointer;
+    }
+
+    .mini-fang-karte:active {
+      background: rgba(0, 116, 225, 0.06);
+    }
+
+    .mini-fang-icon {
+      flex-shrink: 0;
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: var(--farbe-hintergrund);
+      color: var(--farbe-sekundaer);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .mini-fang-icon svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .mini-fang-mitte {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .mini-fang-art {
+      font-family: var(--schrift-serif);
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--farbe-text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .mini-fang-pb {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-family: var(--schrift-sans);
+      font-weight: 700;
+      font-size: 10px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: var(--farbe-akzent-text);
+      background: var(--farbe-akzent);
+      border-radius: 999px;
+      padding: 1px 7px;
+    }
+
+    .mini-fang-pb svg {
+      width: 11px;
+      height: 11px;
+      flex-shrink: 0;
+    }
+
+    .mini-fang-meta {
+      font-family: var(--schrift-mono);
+      font-size: 12px;
+      color: var(--farbe-text-gedaempft);
+      margin-top: 1px;
+    }
+
+    .mini-fang-laenge {
+      flex-shrink: 0;
+      font-family: var(--schrift-mono);
+      font-size: 12.5px;
+      color: var(--farbe-primaer);
+      background: rgba(0, 116, 225, 0.16);
+      border-radius: 999px;
+      padding: 3px 10px;
+    }
+
+    /* ---------- Feste Bottom-Navigation ---------- */
+    /* Ersetzt den bisherigen oberen Liste/Karte/Statistik-Umschalter komplett.
+       Für bequeme Daumen-Bedienung ausgelegt: mind. 64px hohe Tab-Zeile,
+       jeder Tab mind. 44x44px (hier deutlich mehr) Klickfläche, siehe
+       .bottom-nav-item. */
+    .bottom-nav {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 20;
+      display: flex;
+      min-height: 64px;
+      background: var(--farbe-karte);
+      border-top: 1px solid var(--farbe-karte-border);
+      box-shadow: 0 -2px 10px rgba(15, 41, 66, 0.08);
+      /* max(...) sorgt dafür, dass auch Android/ältere iPhones ohne
+         Home-Indikator (env() liefert dort 0) noch genug Innenabstand
+         bekommen, statt komplett ohne Padding dazustehen. */
+      padding-bottom: max(12px, env(safe-area-inset-bottom));
+    }
+
+    .bottom-nav-item {
+      position: relative; /* Bezugspunkt für den Aktiv-Balken (::before) oben am Tab */
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 4px;
+      min-width: 44px;
+      min-height: 44px; /* ausreichend Touch-Fläche, durch min-height der .bottom-nav faktisch größer */
+      color: var(--farbe-text-gedaempft);
+      font-family: var(--schrift-sans);
+      font-weight: 600;
+      font-size: 11px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease;
+    }
+
+    .bottom-nav-item svg {
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    /* Aktiver Tab bewusst mit dem sparsamen Orange-Akzent hervorgehoben -
+       einer der drei explizit vorgesehenen Einsatzorte für --farbe-akzent.
+       Zusätzlich zum Farbwechsel: leicht getönter Hintergrund + ein farbiger
+       Balken oben am Tab, damit der aktive Zustand auch auf einen Blick (nicht
+       nur per Icon-Farbe) erkennbar ist. */
+    .bottom-nav-item.aktiv {
+      color: var(--farbe-akzent);
+      background-color: rgba(247, 158, 2, 0.14); /* = --farbe-akzent, sehr dezent getönt */
+    }
+
+    .bottom-nav-item.aktiv::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 18%;
+      right: 18%;
+      height: 3px;
+      border-radius: 0 0 3px 3px;
+      background-color: var(--farbe-akzent);
+    }
+
+    /* ---------- Schwebender "+ Neuer Fang"-Button ---------- */
+    /* Schwebt frei oberhalb der Bottom-Nav statt darin integriert zu sein -
+       Position hängt daher von deren (variabler) Gesamthöhe inkl. Safe-Area ab. */
+    .fab-neuer-fang {
+      position: fixed;
+      right: 16px;
+      bottom: calc(64px + max(12px, env(safe-area-inset-bottom)) + 14px);
+      z-index: 21;
+      width: 60px;
+      height: 60px;
+      border-radius: 999px;
+      background: var(--farbe-akzent);
+      color: var(--farbe-akzent-text); /* dunkles Icon auf dem hellen Orange - sonst zu wenig Kontrast */
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 22px rgba(247, 158, 2, 0.45); /* = --farbe-akzent als Schattenfarbe */
+      cursor: pointer;
+    }
+
+    .fab-neuer-fang svg {
+      width: 26px;
+      height: 26px;
+      flex-shrink: 0;
+    }
+
+    /* ---------- Formular ---------- */
+    label,
+    .label-artig {
+      display: block;
+      font-weight: 600;
+      margin-top: 18px;
+      margin-bottom: 6px;
+      font-size: 15px;
+      color: var(--farbe-text);
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="text"],
+    input[type="number"],
+    textarea {
+      width: 100%;
+      padding: 12px 14px;
+      font-family: var(--schrift-sans);
+      font-size: 16px; /* verhindert ungewolltes Hineinzoomen auf dem iPhone */
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 10px;
+      /* etwas anders getönt als die weiße Karte - wirkt wie ein leicht
+         eingelassenes Eingabefeld statt einer reinen weißen Fläche */
+      background-color: #EEF7FC;
+      color: var(--farbe-text);
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--farbe-primaer);
+      box-shadow: 0 0 0 3px rgba(0, 116, 225, 0.3);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 60px;
+    }
+
+    /* ---------- Foto-Upload im Formular ---------- */
+    /* Das eigentliche <input type="file"> bleibt unsichtbar - Klicks laufen über
+       das verknüpfte <label for="foto"> (siehe .foto-upload-zone), das nativ
+       den Auswahldialog öffnet, ganz ohne eigenes JavaScript. "sr-only"-Technik
+       statt display:none, damit das Feld für Screenreader ansprechbar bleibt. */
+    .foto-input-versteckt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    /* Antippbare Auswahlzone mit gestricheltem Rand statt der hässlichen
+       nativen Datei-Auswahl-Schaltfläche. Deutlich höher als die geforderten
+       44px, damit Icon + Text bequem mit dem Daumen treffbar sind. */
+    .foto-upload-zone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 64px;
+      padding: 14px 16px;
+      border: 2px dashed var(--farbe-karte-border);
+      border-radius: 10px;
+      background-color: #EEF7FC;
+      color: var(--farbe-text-gedaempft);
+      font-family: var(--schrift-sans);
+      font-size: 14.5px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .foto-upload-zone:active {
+      filter: brightness(0.97);
+    }
+
+    .foto-upload-zone svg {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    /* Vorschau des bereits ausgewählten bzw. bei "Bearbeiten" bereits
+       gespeicherten Fotos - ersetzt die Auswahlzone, solange ein Foto gesetzt ist. */
+    .foto-vorschau-bereich {
+      position: relative;
+      display: inline-block;
+    }
+
+    .foto-vorschau-bild {
+      display: block;
+      max-width: 140px;
+      max-height: 140px;
+      border-radius: 10px;
+      border: 1px solid var(--farbe-karte-border);
+      object-fit: cover;
+    }
+
+    /* "×"-Button zum Entfernen, oben rechts über die Bildecke gesetzt -
+       überschreibt bewusst die globalen button-Regeln (volle Breite usw.),
+       da er ein kleines, rundes Icon-Element sein soll. */
+    .foto-entfernen-button {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      width: 30px;
+      height: 30px;
+      min-height: 0;
+      padding: 0;
+      margin: 0;
+      border-radius: 999px;
+      border: 2px solid var(--farbe-karte);
+      background-color: var(--farbe-text);
+      color: #FFF;
+      font-size: 18px;
+      line-height: 1;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* großer, gut tippbarer Haupt-Button */
+    button {
+      width: 100%;
+      padding: 16px;
+      margin-top: 22px;
+      font-family: var(--schrift-sans);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: #F7F3E6;
+      background-color: var(--farbe-primaer);
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    button:active {
+      filter: brightness(0.82); /* dunkler beim Antippen = Feedback, funktioniert unabhängig von der Basisfarbe */
+    }
+
+    /* Zweiter Button ("Bearbeiten abbrechen") - dezenter als der Haupt-Button */
+    button.sekundaer {
+      background-color: transparent;
+      color: var(--farbe-primaer);
+      border: 2px solid var(--farbe-primaer);
+      margin-top: 10px;
+      display: none; /* wird per JavaScript nur beim Bearbeiten eingeblendet */
+    }
+
+    /* Kleinerer Button, der NICHT die volle Breite einnimmt (z. B. "Suchen") */
+    .button-klein {
+      width: auto;
+      margin-top: 0;
+      padding: 12px 16px;
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    /* ---------- Formular-Dialog ("+ Neuer Fang" / "Bearbeiten") ---------- */
+    /* <dialog> ist ein natives HTML-Element für modale Fenster - kein JavaScript-
+       Framework nötig, der Browser kümmert sich um Backdrop, Fokus, Zentrierung. */
+    dialog#formular-dialog {
+      border: none;
+      padding: 0;
+      border-radius: 16px;
+      width: min(520px, calc(100% - 32px));
+      max-height: 88vh;
+      background: var(--farbe-karte);
+      color: var(--farbe-text);
+      box-shadow: 0 12px 32px rgba(15, 41, 66, 0.22);
+      overflow: hidden; /* runde Ecken bleiben sauber, das Formular scrollt innen */
+    }
+
+    dialog#formular-dialog::backdrop {
+      background: rgba(15, 41, 66, 0.55);
+    }
+
+    .dialog-kopf {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 18px 0;
+    }
+
+    .dialog-kopf h2 {
+      margin-bottom: 0;
+    }
+
+    .dialog-schliessen-btn {
+      width: auto;
+      margin-top: 0;
+      padding: 6px 12px;
+      font-size: 20px;
+      line-height: 1;
+      background: transparent;
+      color: var(--farbe-text-gedaempft);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    .dialog-schliessen-btn:active {
+      background: rgba(15, 41, 66, 0.08);
+    }
+
+    dialog#formular-dialog form {
+      padding: 4px 18px 20px;
+      max-height: calc(88vh - 66px);
+      overflow-y: auto;
+    }
+
+    /* ---------- Wettervorhersage-Dialog ---------- */
+    /* ---------- Wettervorhersage: eigener Vollbild-Tab, kein Popup mehr ---------- */
+    /* Liegt bewusst außerhalb der schmalen 520px-main-Spalte (wird direkt nach
+       </main> als eigenständiges Element eingefügt), damit er wirklich über die
+       volle Bildschirmbreite geht statt in einem kleinen zentrierten Feld zu
+       stecken - wie von Übersicht/Liste/Karte/Statistik gewohnt, nur eben ohne
+       die schmale Kartenbreite. Gleiches dunkles Farbschema wie der Rest der App.
+       Die Luftdruck-Sparkline bleibt der einzige Cyan-Akzent hier. */
+    #ansicht-wetter {
+      width: 100%;
+      min-height: calc(100vh - 100px); /* füllt auch mit wenig Inhalt gefühlt den ganzen Bildschirm */
+      background: var(--farbe-karte);
+      padding: 20px 18px 100px;
+    }
+
+    .wetter-kopf {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--schrift-serif);
+      font-weight: 700;
+      font-size: 22px;
+      color: var(--farbe-primaer);
+      margin: 0 auto 16px;
+      max-width: 520px;
+    }
+
+    .wetter-kopf svg {
+      width: 22px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    /* Inhalt bleibt auf Lesebreite begrenzt und zentriert, nur der Hintergrund
+       geht über die volle Breite - sonst wären die Tagesspalten auf großen
+       Bildschirmen unangenehm weit auseinandergezogen. */
+    .wetter-inhalt-spalte {
+      max-width: 520px;
+      margin: 0 auto;
+    }
+
+    .wetter-suche-zeile {
+      display: flex;
+      gap: 8px;
+    }
+
+    .wetter-suche-zeile input {
+      flex: 1;
+      min-width: 0;
+      padding: 10px 13px;
+      border-radius: 10px;
+      border: 1px solid var(--farbe-karte-border);
+      background: #EEF7FC;
+      color: var(--farbe-text);
+      font-family: var(--schrift-sans);
+      font-size: 14.5px;
+    }
+
+    .wetter-suche-zeile input::placeholder {
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Gespeicherte Standardorte: Chips für schnellen Zugriff ohne erneute Eingabe */
+    .wetter-orte-liste {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 12px;
+    }
+
+    .wetter-ort-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 8px 7px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--farbe-karte-border);
+      background: #EEF7FC;
+      color: var(--farbe-text);
+      font-family: var(--schrift-sans);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .wetter-ort-chip.aktiv {
+      border-color: var(--farbe-primaer);
+      color: var(--farbe-primaer);
+    }
+
+    .wetter-ort-entfernen {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .wetter-ort-entfernen:active {
+      background: rgba(15, 41, 66, 0.1);
+      color: var(--farbe-loeschen);
+    }
+
+    .wetter-ort-zeile {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 12px 0 14px;
+    }
+
+    .wettervorhersage-hinweis {
+      font-family: var(--schrift-mono);
+      font-size: 13px;
+      color: var(--farbe-text-gedaempft);
+      margin: 0;
+    }
+
+    /* "als Standardort merken" - erscheint nur, wenn der aktuelle Ort noch nicht gespeichert ist */
+    .wetter-ort-speichern-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      width: auto;
+      margin-top: 0;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      font-weight: 600;
+      background: transparent;
+      color: var(--farbe-primaer);
+      border: 1px solid rgba(0, 116, 225, 0.35);
+      border-radius: 999px;
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .wetter-ort-speichern-btn:active {
+      background: rgba(0, 116, 225, 0.12);
+    }
+
+    .wetter-ort-speichern-btn svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    .tage-scroller {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+      scrollbar-width: thin;
+    }
+
+    .tag-spalte {
+      flex: 0 0 104px;
+      background: #EEF7FC;
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 12px;
+      padding: 12px 8px 10px;
+      text-align: center;
+    }
+
+    /* Heutige Spalte dezent mit Blau hervorgehoben - Orange bleibt allein der
+       Sparkline vorbehalten, damit es dieser Ansicht nicht an zwei Stellen konkurriert. */
+    .tag-spalte.heute {
+      background: rgba(0, 116, 225, 0.1);
+      border-color: rgba(0, 116, 225, 0.35);
+    }
+
+    .tag-name {
+      font-family: var(--schrift-mono);
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--farbe-text);
+    }
+
+    .tag-datum {
+      font-family: var(--schrift-mono);
+      font-size: 10.5px;
+      color: var(--farbe-text-gedaempft);
+      margin-bottom: 8px;
+    }
+
+    .tag-icon {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 6px;
+      color: var(--farbe-primaer);
+    }
+
+    .tag-icon svg {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .tag-temp {
+      font-family: var(--schrift-mono);
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: var(--farbe-text);
+    }
+
+    .tag-temp .hoch {
+      font-weight: 700;
+    }
+
+    .tag-temp .tief {
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .tag-regen-balken-spur {
+      height: 30px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      margin-bottom: 3px;
+    }
+
+    .tag-regen-balken {
+      width: 9px;
+      border-radius: 3px 3px 0 0;
+      background: linear-gradient(180deg, rgba(0, 116, 225, 0.4) 0%, var(--farbe-primaer) 100%);
+    }
+
+    .tag-regen-mm {
+      font-family: var(--schrift-mono);
+      font-size: 10.5px;
+      color: var(--farbe-text-gedaempft);
+      margin-bottom: 10px;
+    }
+
+    .tag-wind-pfeil {
+      width: 15px;
+      height: 15px;
+      margin: 0 auto 3px;
+      color: var(--farbe-primaer);
+    }
+
+    .tag-wind-pfeil svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .tag-wind-kmh {
+      font-family: var(--schrift-mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--farbe-text);
+    }
+
+    .tag-wind-kompass {
+      font-family: var(--schrift-mono);
+      font-size: 10.5px;
+      color: var(--farbe-text-gedaempft);
+      margin-bottom: 10px;
+    }
+
+    .tag-druck {
+      font-family: var(--schrift-mono);
+      font-size: 11.5px;
+      color: var(--farbe-text-gedaempft);
+      border-top: 1px solid var(--farbe-karte-border);
+      padding-top: 7px;
+    }
+
+    .sparkline-block {
+      margin-top: 14px;
+      background: #EEF7FC;
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 12px;
+      padding: 12px 14px 10px;
+    }
+
+    .sparkline-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: var(--schrift-mono);
+      font-size: 11px;
+      color: var(--farbe-text-gedaempft);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    /* Einziger Cyan-Akzent in dieser Ansicht: der aktuelle Luftdruck-Wert, der
+       fachlich wichtigste Wert für Angler - passt zum sparsamen Akzent-Prinzip. */
+    .sparkline-label strong {
+      color: var(--farbe-akzent);
+      font-size: 13px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .sparkline-svg {
+      width: 100%;
+      height: 46px;
+      display: block;
+    }
+
+    .sparkline-achse {
+      stroke: var(--farbe-karte-border);
+      stroke-width: 1;
+    }
+
+    .sparkline-linie {
+      fill: none;
+      stroke: var(--farbe-akzent);
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .sparkline-punkt {
+      fill: var(--farbe-akzent);
+    }
+
+    /* ---------- "Weitere Details" (Uhrzeit, Foto, Wetter, Notizen, Fangort) ---------- */
+    .weitere-details {
+      margin-top: 22px;
+      border-top: 1px solid var(--farbe-karte-border);
+    }
+
+    .weitere-details summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      list-style: none; /* Standard-Dreieck (Firefox) entfernen */
+      cursor: pointer;
+      padding: 14px 2px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--farbe-primaer);
+    }
+
+    .weitere-details summary::-webkit-details-marker {
+      display: none; /* Standard-Dreieck (Chrome/Safari) entfernen */
+    }
+
+    .weitere-details .chevron-svg {
+      width: 18px;
+      height: 18px;
+      color: var(--farbe-primaer);
+      transition: transform 0.15s ease;
+    }
+
+    .weitere-details[open] .chevron-svg {
+      transform: rotate(180deg);
+    }
+
+    /* ---------- Standort-Auswahl im Formular ---------- */
+    .standort-suche-zeile {
+      display: flex;
+      gap: 8px;
+    }
+
+    .standort-suche-zeile input {
+      flex: 1;
+      min-width: 0; /* verhindert, dass das Textfeld die Zeile sprengt */
+    }
+
+    .formular-karte {
+      height: 220px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 2px solid var(--farbe-primaer);
+    }
+
+    .standort-hinweis {
+      margin: 8px 0 0;
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Kleines Inline-Icon in Hinweistexten (Pin, Wetter-Zusatzwerte etc.) statt Emoji */
+    .hinweis-icon {
+      display: inline-flex;
+      width: 13px;
+      height: 13px;
+      vertical-align: -2px;
+    }
+
+    .hinweis-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Zeile mit Label + kleinem Aktions-Link daneben (z. B. Wetter-Label + "Neu abrufen") */
+    .feld-kopf-zeile {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 18px;
+      margin-bottom: 6px;
+    }
+
+    .feld-kopf-zeile label {
+      margin: 0;
+    }
+
+    .aktion-link-klein {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--farbe-primaer);
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .aktion-link-klein svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    /* ---------- Umschalter Liste / Karte / Statistik ---------- */
+    /* Äußere "Kachel" um Header-Streifen + Leaflet-Karte + Footer - der harte
+       Rahmen sitzt jetzt hier (nicht mehr direkt an der Leaflet-Karte), damit
+       die Karte selbst randlos wirkt und optisch eingebettet ist. */
+    .karten-kachel {
+      border-radius: 16px;
+      overflow: hidden; /* rundet Header/Karte/Footer gemeinsam an den Ecken ab */
+      border: 0.5px solid var(--farbe-karte-border);
+      background: var(--farbe-karte);
+    }
+
+    .karten-kachel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 12px 14px 10px;
+      /* bewusst kein border-bottom - Header geht ohne harten Trennstrich in die Karte über */
+    }
+
+    .karten-kachel-titel {
+      margin: 0;
+      font-family: var(--schrift-serif);
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--farbe-primaer);
+    }
+
+    .karten-kachel-toggles {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    /* Die Leaflet-Karte füllt die Kachel komplett aus - Rahmen/Rundung
+       übernimmt jetzt .karten-kachel, hier bewusst keine eigenen mehr. */
+    .uebersichts-karte {
+      height: 320px;
+      margin: 0;
+      padding: 0;
+      border: none;
+    }
+
+    /* Leaflet-Zoom-Controls (oben links, Standardposition) optisch dezenter
+       als das Leaflet-Standard-Styling - nur innerhalb der Kartenübersicht,
+       die kleine Standort-Karte im Formular-Dialog (.formular-karte) bleibt
+       unangetastet. */
+    .uebersichts-karte .leaflet-control-zoom {
+      border: 0.5px solid rgba(0, 0, 0, 0.1);
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: none;
+      overflow: hidden; /* rundet die Ecken der inneren +/- -Buttons mit ab */
+    }
+
+    .uebersichts-karte .leaflet-control-zoom a {
+      background: transparent;
+      border: none;
+      border-bottom: 0.5px solid rgba(0, 0, 0, 0.1);
+      color: var(--farbe-text);
+    }
+
+    .uebersichts-karte .leaflet-control-zoom a:last-child {
+      border-bottom: none;
+    }
+
+    /* Schmaler Footer unter der Karte: Anzahl Fangörter links, "Alle
+       zentrieren"-Link rechts. Nur eine sehr dezente Trennlinie nach oben. */
+    .karten-kachel-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 14px 12px;
+      border-top: 0.5px solid var(--farbe-karte-border);
+      font-family: var(--schrift-sans);
+      font-size: 12.5px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .karten-kachel-anzahl {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .karten-kachel-anzahl svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .karten-zentrieren-link {
+      width: auto;
+      margin-top: 0;
+      padding: 0;
+      background: transparent;
+      border: none;
+      color: var(--farbe-primaer);
+      font-family: var(--schrift-sans);
+      font-weight: 600;
+      font-size: 12.5px;
+      cursor: pointer;
+    }
+
+    /* ---------- Live-Wind-/Wolken-Toggles im Kachel-Header der Kartenübersicht ---------- */
+    /* Kleine, schlanke Pill-Buttons - liegen jetzt als normales HTML im
+       Header-Streifen statt als Leaflet-Control über der Karte. */
+    .karten-layer-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      width: auto;
+      margin-top: 0;
+      padding: 5px 10px;
+      border-radius: 20px;
+      border: 0.5px solid var(--farbe-karte-border);
+      background: var(--farbe-karte);
+      color: var(--farbe-text-gedaempft);
+      font-family: var(--schrift-sans);
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .karten-layer-toggle svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    .karten-layer-toggle.aktiv {
+      background: var(--farbe-primaer);
+      border-color: var(--farbe-primaer);
+      color: #F7F3E6;
+    }
+
+    .karten-wetter-hinweis {
+      margin: 0 14px 10px;
+      font-family: var(--schrift-mono);
+      font-size: 11px;
+      color: var(--farbe-loeschen);
+    }
+
+    /* Rotiertes Pfeil-Icon je Rasterpunkt - kein Standard-Leaflet-Marker-Hintergrund */
+    .wind-marker-icon {
+      color: var(--farbe-primaer-dunkel);
+    }
+
+    .wind-marker-icon svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* ---------- Liste der Fänge: jeder Eintrag als eigene Karte ---------- */
+    #fang-liste {
+      margin-top: 4px;
+    }
+
+    .fang-eintrag {
+      background: var(--farbe-karte);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 14px;
+      overflow: hidden; /* schneidet das Foto oben an den runden Ecken sauber ab */
+      margin-bottom: 20px;
+      box-shadow: 0 2px 6px rgba(15, 41, 66, 0.06);
+    }
+
+    .fang-eintrag:last-child {
+      margin-bottom: 0;
+    }
+
+    .fang-foto {
+      display: block;
+      width: 100%;
+      height: 200px;
+      object-fit: cover; /* Bild füllt den Bereich, ohne verzerrt zu werden */
+    }
+
+    .eintrag-inhalt {
+      padding: 18px 20px 16px;
+    }
+
+    .eintrag-kopf-zeile {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .fischart {
+      margin: 0;
+      font-family: var(--schrift-serif);
+      font-weight: 700;
+      font-size: 21px;
+      color: var(--farbe-text);
+    }
+
+    .kopf-badges {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    /* Bewusst mit --farbe-primaer statt --farbe-akzent, damit das Orange
+       wirklich nur den wenigen vorgesehenen Highlights vorbehalten bleibt
+       (PB-Badge, aktiver Bottom-Nav-Tab, Neuer-Fang-Button). */
+    .badge-laenge {
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--farbe-primaer);
+      background: rgba(0, 116, 225, 0.16);
+      border-radius: 999px;
+      padding: 3px 11px;
+      white-space: nowrap;
+    }
+
+    .badge-pb {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: var(--schrift-sans);
+      font-weight: 700;
+      font-size: 11.5px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--farbe-akzent-text); /* dunkler Text auf hellem Orange statt Weiß - besserer Kontrast */
+      background: var(--farbe-akzent);
+      border-radius: 999px;
+      padding: 3px 10px;
+      white-space: nowrap;
+    }
+
+    .badge-pb svg {
+      width: 13px;
+      height: 13px;
+      flex-shrink: 0;
+    }
+
+    .eintrag-meta {
+      margin-top: 4px;
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      color: var(--farbe-text-gedaempft);
+      letter-spacing: 0.2px;
+    }
+
+    /* Inline im Fließtext von .eintrag-meta, daher vertical-align statt Flex */
+    .mond-icon {
+      width: 14px;
+      height: 14px;
+      vertical-align: -2px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .eintrag-details {
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      margin-top: 16px;
+    }
+
+    .detail-zeile {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 15.5px;
+      line-height: 1.45;
+    }
+
+    .detail-zeile .icon {
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: var(--farbe-sekundaer);
+      line-height: 0; /* verhindert zusätzlichen Abstand rund um das SVG */
+    }
+
+    .detail-zeile .icon.akzent {
+      color: var(--farbe-akzent);
+    }
+
+    .icon-svg {
+      display: block;
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ---------- "Bearbeiten" / "Löschen" pro Eintrag ---------- */
+    .aktionen {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid var(--farbe-karte-border);
+    }
+
+    .aktion-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: auto;
+      margin-top: 0;
+      padding: 8px 14px;
+      font-family: var(--schrift-sans);
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .bearbeiten-btn {
+      color: var(--farbe-primaer);
+      border-color: rgba(0, 116, 225, 0.35);
+    }
+
+    .bearbeiten-btn:active {
+      background: rgba(0, 116, 225, 0.1);
+    }
+
+    .loeschen-btn {
+      color: var(--farbe-loeschen);
+      border-color: rgba(216, 72, 61, 0.35);
+    }
+
+    .loeschen-btn:active {
+      background: rgba(216, 72, 61, 0.12);
+    }
+
+    .leer-hinweis {
+      color: var(--farbe-text-gedaempft);
+      font-style: italic;
+    }
+
+    /* ---------- Statistik / Kuchendiagramme ---------- */
+    .statistik-titel {
+      font-family: var(--schrift-serif);
+      font-weight: 600;
+      font-size: 17px;
+      color: var(--farbe-primaer);
+      margin: 22px 0 12px;
+    }
+
+    .statistik-titel:first-child {
+      margin-top: 0;
+    }
+
+    .kuchendiagramm {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .kuchendiagramm-svg {
+      width: 180px;
+      height: 180px;
+    }
+
+    .legende {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .legende-zeile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14.5px;
+    }
+
+    .legende-farbe {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .legende-label {
+      flex: 1;
+      color: var(--farbe-text);
+    }
+
+    .legende-wert {
+      font-family: var(--schrift-mono);
+      color: var(--farbe-text-gedaempft);
+      font-size: 13.5px;
+    }
+
+    /* ---------- Erweiterte Statistiken: gemeinsame Bausteine ---------- */
+    /* Jeder der neuen Abschnitte (und die beiden bestehenden Kuchendiagramme)
+       bekommt jetzt eine eigene Karte statt lose im äußeren <section>-Rahmen
+       zu stehen - dasselbe verschachtelte Karten-Muster wie .kennzahl-karte
+       im Dashboard (weißer Hintergrund + Rahmen funktioniert dort genauso
+       innerhalb des ebenfalls weißen äußeren <section>). */
+    .statistik-karte {
+      background: var(--farbe-karte);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 14px;
+      padding: 16px 16px 14px;
+      box-shadow: 0 1px 3px rgba(15, 41, 66, 0.05);
+      margin-bottom: 14px;
+    }
+
+    .statistik-karte:last-child {
+      margin-bottom: 0;
+    }
+
+    .statistik-titel-zeile {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .statistik-titel-zeile .statistik-titel {
+      margin: 0;
+    }
+
+    .statistik-fussnote {
+      margin: 12px 0 0;
+      font-size: 12.5px;
+      font-style: italic;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Jahr-Filter-Dropdown im Monats-Balkendiagramm (Statistik) */
+    .jahr-filter {
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      color: var(--farbe-primaer);
+      background: rgba(0, 116, 225, 0.08);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 8px;
+      padding: 4px 8px;
+    }
+
+    /* Horizontales SVG-Balkendiagramm (Beste Tageszeit, Köder-Erfolgsrate) */
+    .balken-liste {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .balken-zeile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .balken-label {
+      flex: 0 0 auto;
+      max-width: 42%;
+      font-size: 14px;
+      color: var(--farbe-text);
+    }
+
+    .balken-svg {
+      flex: 1;
+      height: 14px;
+      display: block;
+    }
+
+    .balken-wert {
+      flex: 0 0 auto;
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      color: var(--farbe-text-gedaempft);
+      min-width: 18px;
+      text-align: right;
+    }
+
+    /* Vertikales SVG-Säulendiagramm (Fänge pro Monat) */
+    .saeulendiagramm {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 110px;
+      padding-top: 6px;
+    }
+
+    .saeule-spalte {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      height: 100%;
+      min-width: 0;
+    }
+
+    .saeule-svg {
+      width: 100%;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .saeule-label {
+      font-size: 10.5px;
+      color: var(--farbe-text-gedaempft);
+      margin-top: 5px;
+    }
+
+    .saeule-wert {
+      font-family: var(--schrift-mono);
+      font-size: 10px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Kleine Kachelraster (Mondphase, Luftdruck-Trend, Früh-/Spätfang) */
+    .mini-kachel-raster {
+      display: grid;
+      gap: 8px;
+    }
+
+    .mini-kachel {
+      background: var(--farbe-hintergrund);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+
+    .mini-kachel.beste {
+      border-color: var(--farbe-akzent);
+      background: rgba(247, 158, 2, 0.10);
+    }
+
+    .mini-kachel-icon {
+      width: 22px;
+      height: 22px;
+      margin: 0 auto 6px;
+      color: var(--farbe-primaer);
+    }
+
+    .mini-kachel.beste .mini-kachel-icon {
+      color: var(--farbe-akzent);
+    }
+
+    .mini-kachel-icon svg {
+      width: 100%;
+      height: 100%;
+      color: inherit;
+    }
+
+    .mini-kachel-label {
+      font-size: 12px;
+      color: var(--farbe-text-gedaempft);
+      margin-bottom: 2px;
+    }
+
+    .mini-kachel-wert {
+      font-family: var(--schrift-mono);
+      font-weight: 700;
+      font-size: 18px;
+      color: var(--farbe-text);
+    }
+
+    .mini-kachel-unterzeile {
+      font-size: 11.5px;
+      color: var(--farbe-text-gedaempft);
+      margin-top: 2px;
+    }
+
+    /* Aufklappbare Köder-Liste pro Fischart (Köder-Erfolgsrate) */
+    .koeder-details {
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .koeder-details:last-child {
+      margin-bottom: 0;
+    }
+
+    .koeder-details summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      list-style: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 600;
+      font-size: 14.5px;
+      color: var(--farbe-text);
+      background: var(--farbe-hintergrund);
+    }
+
+    .koeder-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .koeder-details .chevron-svg {
+      width: 16px;
+      height: 16px;
+      color: var(--farbe-primaer);
+      transition: transform 0.15s ease;
+      flex-shrink: 0;
+    }
+
+    .koeder-details[open] .chevron-svg {
+      transform: rotate(180deg);
+    }
+
+    .koeder-details-anzahl {
+      font-family: var(--schrift-mono);
+      font-weight: 400;
+      font-size: 13px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .koeder-details-inhalt {
+      padding: 12px;
+    }
+
+    /* Zeilenliste für Gewässer-Rangliste + Fischart-Längentabelle */
+    .info-liste {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .info-zeile {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--farbe-karte-border);
+    }
+
+    .info-zeile:first-child {
+      padding-top: 0;
+    }
+
+    .info-zeile:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .info-kopf {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .info-name {
+      font-weight: 600;
+      flex: 1;
+    }
+
+    .info-hauptwert {
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      color: var(--farbe-text-gedaempft);
+      white-space: nowrap;
+    }
+
+    .info-unterzeile {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 14px;
+      margin-top: 3px;
+      font-size: 13px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Rang-Nummer-Kreis in der Gewässer-Rangliste */
+    .rang-platz {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0, 116, 225, 0.12);
+      color: var(--farbe-primaer);
+      font-family: var(--schrift-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .rang-platz.eins {
+      background: var(--farbe-akzent);
+      color: var(--farbe-akzent-text);
+    }
+
+    /* Große Zweier-Kennzahlen (Angeltage/Fangtage, Streak) */
+    .zwei-zahlen-raster {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .grosse-zahl {
+      text-align: center;
+    }
+
+    .grosse-zahl-wert {
+      font-family: var(--schrift-mono);
+      font-weight: 700;
+      font-size: 32px;
+      color: var(--farbe-primaer);
+      line-height: 1.1;
+    }
+
+    .grosse-zahl-label {
+      font-size: 13px;
+      color: var(--farbe-text-gedaempft);
+      margin-top: 2px;
+    }
+
+    /* Fortschrittsbalken (Erfolgsquote Angeltage/Fangtage) */
+    .fortschritt-zeile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .fortschritt-leiste {
+      flex: 1;
+      height: 10px;
+      border-radius: 5px;
+      background: rgba(0, 116, 225, 0.10);
+      overflow: hidden;
+    }
+
+    .fortschritt-fuellung {
+      height: 100%;
+      background: var(--farbe-akzent);
+      border-radius: 5px;
+    }
+
+    .fortschritt-wert {
+      font-family: var(--schrift-mono);
+      font-size: 14px;
+      color: var(--farbe-text);
+      min-width: 38px;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Catch Log</h1>
+  </header>
+  <!-- id nur hier (nicht bei der dezenten Variante im Dialog) - dort werden
+       per JavaScript die Fische aus aktualisiereWellenFische() eingefügt -->
+  <div class="wellenlinie" id="header-wellenlinie" aria-hidden="true"></div>
+
+  <main id="hauptbereich">
+
+    <!-- ---------- Dashboard-Startansicht / Liste / Karte / Statistik ---------- -->
+    <!-- Welche der vier Ansichten sichtbar ist, steuert jetzt die feste Bottom-Nav
+         unten statt eines oberen Umschalters, siehe wechsleAnsicht() im Skript.
+         Bei "wetter" wird dieses ganze main-Element ausgeblendet, da die
+         Wettervorhersage außerhalb davon liegt (volle Bildschirmbreite). -->
+    <section>
+
+      <div id="ansicht-uebersicht">
+        <h3 class="abschnitt-titel">Übersicht</h3>
+        <div class="kennzahlen-raster">
+          <div class="kennzahl-karte">
+            <div class="kennzahl-label">Fänge gesamt</div>
+            <div class="kennzahl-wert" id="kennzahl-gesamt">0</div>
+          </div>
+          <div class="kennzahl-karte">
+            <div class="kennzahl-label">Fischarten</div>
+            <div class="kennzahl-wert" id="kennzahl-fischarten">0</div>
+          </div>
+          <div class="kennzahl-karte">
+            <div class="kennzahl-label">Größter Fang</div>
+            <div class="kennzahl-wert" id="kennzahl-groesster" style="font-size: 17px;">–</div>
+          </div>
+          <div class="kennzahl-karte">
+            <div class="kennzahl-label">Angeltage</div>
+            <div class="kennzahl-wert" id="kennzahl-angeltage">0</div>
+          </div>
+        </div>
+
+        <h3 class="abschnitt-titel">Letzte Fänge</h3>
+        <div id="letzte-faenge-liste" class="letzte-faenge-liste">
+          <!-- wird per JavaScript befüllt -->
+        </div>
+      </div>
+
+      <div id="ansicht-liste" style="display: none;">
+        <h2>Meine Fänge</h2>
+        <div id="fang-liste">
+          <!-- wird per JavaScript befüllt -->
+        </div>
+      </div>
+
+      <div id="ansicht-karte" style="display: none;">
+        <div class="karten-kachel">
+          <div class="karten-kachel-header">
+            <h2 class="karten-kachel-titel">Kartenübersicht</h2>
+            <div class="karten-kachel-toggles">
+              <button type="button" class="karten-layer-toggle" id="toggle-wind-layer" onclick="schalteWindLayer()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="21" x2="12" y2="3"/><polyline points="6 9 12 3 18 9"/></svg>
+                Wind
+              </button>
+              <button type="button" class="karten-layer-toggle" id="toggle-wolken-layer" onclick="schalteWolkenLayer()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a3 3 0 0 1 0-6 4.2 4.2 0 0 1 8.2-1" opacity="0.55"/><path d="M7 20a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.9-1A4 4 0 0 1 18 20H7z"/></svg>
+                Wolken
+              </button>
+              <button type="button" class="karten-layer-toggle" id="toggle-satellit-layer" onclick="schalteSatellitLayer()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Satellit
+              </button>
+            </div>
+          </div>
+          <!-- Fehlermeldung bei Wind-/Wolken-Layer (z. B. Ladefehler), siehe zeigeKartenWetterHinweis() -->
+          <span class="karten-wetter-hinweis" id="karten-wetter-hinweis" style="display: none;"></span>
+
+          <div id="uebersichts-karte" class="uebersichts-karte"></div>
+
+          <div class="karten-kachel-footer">
+            <span class="karten-kachel-anzahl">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span id="karten-anzahl-orte">0</span> Fangörter eingetragen
+            </span>
+            <button type="button" class="karten-zentrieren-link" onclick="zentriereKarteAufAlleMarker()">Alle zentrieren</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="ansicht-statistik" style="display: none;">
+        <h2>Statistik</h2>
+        <div id="statistik-inhalt">
+          <!-- wird per JavaScript befüllt -->
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ---------- Schwebender "+ Neuer Fang"-Button: einziger Weg, das Formular zu öffnen ---------- -->
+  <button type="button" class="fab-neuer-fang" onclick="formularOeffnenNeu()" aria-label="Neuer Fang">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+
+  <!-- ---------- Feste Bottom-Navigation ---------- -->
+  <nav class="bottom-nav">
+    <button type="button" class="bottom-nav-item aktiv" data-ansicht="uebersicht" onclick="wechsleAnsicht('uebersicht')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      Übersicht
+    </button>
+    <button type="button" class="bottom-nav-item" data-ansicht="liste" onclick="wechsleAnsicht('liste')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      Liste
+    </button>
+    <button type="button" class="bottom-nav-item" data-ansicht="karte" onclick="wechsleAnsicht('karte')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+      Karte
+    </button>
+    <button type="button" class="bottom-nav-item" data-ansicht="statistik" onclick="wechsleAnsicht('statistik')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+      Statistik
+    </button>
+    <button type="button" class="bottom-nav-item" data-ansicht="wetter" onclick="wechsleAnsicht('wetter')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      Wetter
+    </button>
+  </nav>
+
+  <!-- ---------- Formular-Dialog: standardmäßig unsichtbar, öffnet sich über "+ Neuer Fang" oder "Bearbeiten" ---------- -->
+  <dialog id="formular-dialog">
+    <div class="dialog-kopf">
+      <!-- Dieser Titel wechselt per JavaScript zwischen "Neuen Fang eintragen" und "Fang bearbeiten" -->
+      <h2 id="formular-titel">Neuen Fang eintragen</h2>
+      <button type="button" class="dialog-schliessen-btn" onclick="bearbeitungAbbrechen()" aria-label="Schließen">✕</button>
+    </div>
+    <div class="wellenlinie wellenlinie--dezent" aria-hidden="true"></div>
+
+    <form id="fang-formular">
+
+      <label for="datum">Datum</label>
+      <input type="date" id="datum" required>
+
+      <label for="gewaesser">Gewässer</label>
+      <input type="text" id="gewaesser" placeholder="z. B. Musterteich" required>
+
+      <label for="fischart">Fischart</label>
+      <input type="text" id="fischart" placeholder="z. B. Hecht" required>
+
+      <label for="laenge">Länge in cm (optional)</label>
+      <!-- inputmode sorgt dafür, dass auf dem Handy die Zahlentastatur erscheint -->
+      <input type="number" id="laenge" min="0" step="0.5" inputmode="decimal" placeholder="z. B. 45">
+
+      <label for="koeder">Köder</label>
+      <input type="text" id="koeder" placeholder="z. B. Gummifisch" required>
+
+      <label for="methode">Methode</label>
+      <input type="text" id="methode" placeholder="z. B. Spinnfischen" required>
+
+      <!-- Alles Optionale ist eingeklappt, damit das Formular für den schnellen
+           Eintrag am Wasser kurz bleibt - bei Bedarf einfach aufklappen. -->
+      <details id="weitere-details" class="weitere-details">
+        <summary>
+          Weitere Details ergänzen
+          <svg class="chevron-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </summary>
+
+        <label for="uhrzeit">Uhrzeit (optional)</label>
+        <input type="time" id="uhrzeit">
+
+        <label for="foto">Foto (optional)</label>
+        <!-- accept="image/*" zeigt nur Bilder zur Auswahl an.
+             WICHTIG - Unterschied mit/ohne "capture": Ein zusätzliches
+             capture="environment" (frühere Version) zwingt sowohl iOS Safari
+             als auch Android Chrome direkt in die Kamera-App - die normale
+             Fotomediathek/Galerie wird dabei komplett übersprungen und ist
+             über dieses Feld dann gar nicht mehr erreichbar. OHNE
+             capture-Attribut zeigen beide Browser stattdessen ein Auswahlmenü:
+             iOS Safari bietet "Foto oder Video aufnehmen" UND "Fotomediathek"
+             an, Android Chrome "Kamera" UND "Dateien" (worüber auch die
+             Galerie-Apps erreichbar sind) - genau das ist hier gewünscht,
+             deshalb bleibt nur accept="image/*" stehen. -->
+        <input type="file" id="foto" accept="image/*" class="foto-input-versteckt">
+
+        <!-- Das <label for="foto"> öffnet beim Antippen automatisch den
+             Auswahldialog des oben versteckten <input> - dafür ist kein
+             eigenes JavaScript nötig. Wird ausgeblendet, sobald ein Foto
+             gewählt ist (siehe zeigeFotoVorschau()/verstecktFotoVorschau()). -->
+        <label for="foto" id="foto-upload-zone" class="foto-upload-zone">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          <span>Foto aufnehmen oder aus Galerie wählen</span>
+        </label>
+
+        <!-- Vorschau des gewählten bzw. bereits gespeicherten Fotos, standardmäßig
+             versteckt (siehe .foto-vorschau-bereich); wird per JavaScript befüllt. -->
+        <div id="foto-vorschau-bereich" class="foto-vorschau-bereich" style="display: none;">
+          <img id="foto-vorschau-bild" class="foto-vorschau-bild" alt="Vorschau des ausgewählten Fotos">
+          <button type="button" id="foto-entfernen-button" class="foto-entfernen-button" aria-label="Foto entfernen" onclick="entferneAusgewaehltesFoto()">×</button>
+        </div>
+
+        <!-- Fangort zuerst: entweder per Ortssuche ODER durch Antippen der Karte -
+             die automatische Wetter-Ermittlung unten braucht diese Koordinaten. -->
+        <label for="standort-suche">Fangort suchen (optional)</label>
+        <div class="standort-suche-zeile">
+          <input type="text" id="standort-suche" placeholder="z. B. Musterteich, Musterstadt">
+          <button type="button" id="standort-suchen-button" class="button-klein">Suchen</button>
+        </div>
+
+        <p class="label-artig">Oder auf der Karte antippen (optional)</p>
+        <div id="formular-karte" class="formular-karte"></div>
+        <p id="standort-hinweis" class="standort-hinweis">Noch kein Fangort gewählt.</p>
+
+        <!-- Wetter wird automatisch ermittelt, sobald Fangort + Datum bekannt sind
+             (siehe versucheAutomatischesWetter() im Skript) - bleibt aber frei editierbar. -->
+        <div class="feld-kopf-zeile">
+          <label for="wetter">Wetter (optional)</label>
+          <span class="aktion-link-klein" onclick="wetterNeuAbrufen()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg> Neu abrufen</span>
+        </div>
+        <input type="text" id="wetter" placeholder="wird automatisch ermittelt, sobald ein Fangort gesetzt ist">
+        <p id="wetter-auto-hinweis" class="standort-hinweis"></p>
+        <!-- Zeigt Luftdruck-Trend, Niederschlag, UV-Index und Sonnenzeiten als
+             nicht editierbare Vorschau an, sobald sie automatisch ermittelt wurden. -->
+        <p id="wetter-zusatz-vorschau" class="standort-hinweis"></p>
+
+        <label for="besonderheiten">Besonderheiten (optional)</label>
+        <input type="text" id="besonderheiten" placeholder="z. B. Fisch hat stark gekämpft">
+
+        <label for="notizen">Notizen (optional)</label>
+        <textarea id="notizen" placeholder="Sonstiges ..."></textarea>
+      </details>
+
+      <button type="submit" id="speichern-button">Fang speichern</button>
+      <!-- nur sichtbar, wenn gerade ein bestehender Eintrag bearbeitet wird -->
+      <button type="button" id="abbrechen-button" class="sekundaer" onclick="bearbeitungAbbrechen()">Bearbeitung abbrechen</button>
+
+    </form>
+  </dialog>
+
+  <!-- ---------- Wettervorhersage: eigenständiger Vollbild-Tab, kein Bezug zu einem Fang ---------- -->
+  <!-- Kein <dialog> mehr - ein normaler, per wechsleAnsicht() ein-/ausgeblendeter
+       Bereich außerhalb der main-Spalte, damit er die volle Bildschirmbreite nutzt. -->
+  <div id="ansicht-wetter" style="display: none;">
+    <h2 class="wetter-kopf">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+      Wettervorhersage
+    </h2>
+
+    <div class="wetter-inhalt-spalte">
+      <div class="wetter-suche-zeile">
+        <input type="text" id="wettervorhersage-suche" placeholder="Ort suchen, z. B. Rheinsberg">
+        <button type="button" id="wettervorhersage-suchen-button" class="button-klein">Suchen</button>
+      </div>
+
+      <!-- Gespeicherte Standardorte - antippen lädt sofort die Vorhersage, ohne neu zu suchen -->
+      <div id="wetter-orte-liste" class="wetter-orte-liste">
+        <!-- wird per JavaScript befüllt -->
+      </div>
+
+      <div class="wetter-ort-zeile">
+        <p id="wettervorhersage-ort-hinweis" class="wettervorhersage-hinweis">Noch kein Ort gewählt.</p>
+        <button type="button" id="wetter-ort-speichern-btn" class="wetter-ort-speichern-btn" onclick="speichereAktuellenOrtAlsStandard()" style="display: none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 14.9 9.5 22 10.3 16.7 15 18.2 22 12 18.4 5.8 22 7.3 15 2 10.3 9.1 9.5 12 3"/></svg>
+          Speichern
+        </button>
+      </div>
+
+      <div id="wettervorhersage-tage" class="tage-scroller">
+        <!-- wird per JavaScript befüllt -->
+      </div>
+
+      <div id="wettervorhersage-sparkline-block" class="sparkline-block" style="display: none;">
+        <div class="sparkline-label">
+          Luftdruck-Trend, 7 Tage
+          <strong id="wettervorhersage-druck-heute"></strong>
+        </div>
+        <svg viewBox="0 0 320 46" class="sparkline-svg">
+          <line x1="0" y1="23" x2="320" y2="23" class="sparkline-achse"/>
+          <polyline id="wettervorhersage-druck-linie" class="sparkline-linie"/>
+          <circle id="wettervorhersage-druck-punkt" r="3.4" class="sparkline-punkt"/>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------------------------------------------------------
+    // Kleine, einfarbige SVG-Icons für die Detail-Zeilen. "stroke='currentColor'"
+    // sorgt dafür, dass jedes Icon die Textfarbe seines umgebenden <span> annimmt -
+    // so lässt sich die Icon-Farbe komplett über CSS steuern (siehe .icon in <style>).
+    // ---------------------------------------------------------
+    const ICONS = {
+      // Bottom-Navigation + schwebender Neuer-Fang-Button
+      dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>`,
+      liste: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
+      kartenansicht: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>`,
+      statistikIcon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>`,
+      neu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`,
+
+      // Wetterlage-Icons für WETTERCODES (ersetzen die bisherigen Emojis) sowie
+      // weitere Stellen, an denen bisher Emojis statt Linien-Icons standen.
+      wetterSonne: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+      wetterNebel: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 12a4.5 4.5 0 0 0-1.4-8.8A6 6 0 0 0 5 8.5"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="5" y1="17" x2="19" y2="17"/><line x1="7" y1="21" x2="17" y2="21"/></svg>`,
+      wetterRegen: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/><line x1="8" y1="19" x2="8" y2="21"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="16" y1="19" x2="16" y2="21"/></svg>`,
+      wetterSchnee: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h4"/><line x1="12" y1="14" x2="12" y2="24"/><line x1="8" y1="16.5" x2="16" y2="21.5"/><line x1="16" y1="16.5" x2="8" y2="21.5"/></svg>`,
+      wetterGewitter: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h4"/><polyline points="13 12 10 18 14 18 11 23"/></svg>`,
+      // Pokal statt Trophäen-Emoji für den PB-Badge
+      pokal: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0V4z"/><path d="M8 5H4v2a4 4 0 0 0 4 3.5"/><path d="M16 5h4v2a4 4 0 0 1-4 3.5"/><line x1="12" y1="13" x2="12" y2="17"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="9" y1="20" x2="9" y2="17" /><line x1="15" y1="20" x2="15" y2="17"/></svg>`,
+      // Kreisförmiger Doppelpfeil statt 🔄 für "Neu abrufen"
+      aktualisieren: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>`,
+      // Schlichter Stern statt ☆ für "Als Standardort speichern"
+      stern: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 14.9 9.5 22 10.3 16.7 15 18.2 22 12 18.4 5.8 22 7.3 15 2 10.3 9.1 9.5 12 3"/></svg>`,
+      gewaesser: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+      koeder: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></svg>`,
+      methode: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
+      // Für die Foto-Auswahlzone im Formular (siehe .foto-upload-zone)
+      kamera: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`,
+      wetter: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`,
+      wind: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="21" x2="12" y2="3"/><polyline points="6 9 12 3 18 9"/></svg>`,
+      wolkeGering: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 19a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.9-1A4 4 0 0 1 17 19H6z"/></svg>`,
+      wolkeMittel: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a3 3 0 0 1 0-6 4.2 4.2 0 0 1 8.2-1" opacity="0.55"/><path d="M7 20a4 4 0 0 1 0-8 5.5 5.5 0 0 1 10.9-1A4 4 0 0 1 18 20H7z"/></svg>`,
+      wolkeStark: `<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19a4.5 4.5 0 0 1 0-9 6 6 0 0 1 11.7-1.3A4.3 4.3 0 0 1 17.5 19H5z"/></svg>`,
+      // Globus statt Emoji für den "Satellit"-Kartenhintergrund-Toggle
+      satellit: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+      luftdruckSteigend: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`,
+      luftdruckFallend: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>`,
+      luftdruckStabil: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`,
+      niederschlag: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`,
+      uv: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>`,
+      sonnenaufgang: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg>`,
+      sonnenuntergang: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="16 5 12 9 8 5"/></svg>`,
+      besonderheiten: `<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+      notizen: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>`,
+      standort: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+      bearbeiten: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`,
+      loeschen: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>`,
+
+      // Für die erweiterten Statistiken (Frühester/Spätester Fang, Streak,
+      // Gesamtlänge) ergänzte Icons, gleicher Linien-Stil wie die übrigen.
+      uhr: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg>`,
+      flamme: `<svg class="icon-svg" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 22c4.4 0 7-2.7 7-6.5C19 11 15 8 14 4c-.3 2.5-1.7 4-3 5-1.7-1.2-2-3-2-5-2 2-3 5-3 8.5C6 19.3 7.6 22 12 22z"/></svg>`,
+      lineal: `<svg class="icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="10" rx="1"/><line x1="6" y1="7" x2="6" y2="10"/><line x1="10" y1="7" x2="10" y2="12"/><line x1="14" y1="7" x2="14" y2="10"/><line x1="18" y1="7" x2="18" y2="12"/></svg>`,
+      // Schlichter Linien-Fisch für die animierten Fische in der Wellenlinie
+      // (aktualisiereWellenFische()) - Kopf links, Schwanzflosse rechts.
+      fisch: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c3-5 9-8 14-8 1.5 2.4 2 5.3 2 8s-0.5 5.6-2 8c-5 0-11-3-14-8z"/><path d="M18 8l4-3v14l-4-3"/><circle cx="6.5" cy="10.5" r="0.6" fill="currentColor"/></svg>`
+    };
+
+    // ---------------------------------------------------------
+    // Alle bisherigen Fänge liegen als Liste (Array) im Speicher.
+    // Beim Start der Seite laden wir sie aus dem localStorage,
+    // damit sie auch nach dem Schließen des Browsers erhalten bleiben.
+    // ---------------------------------------------------------
+
+    const SPEICHER_SCHLUESSEL = "fangLogbuchEintraege";
+
+    // Startansicht der Karten: geografische Mitte Deutschlands
+    const STANDARD_KARTENZENTRUM = [51.1657, 10.4515];
+    const STANDARD_ZOOM = 6;
+
+    // Liste aus localStorage laden (oder leere Liste, falls noch nichts da ist)
+    function ladeFaenge() {
+      const gespeichert = localStorage.getItem(SPEICHER_SCHLUESSEL);
+      if (!gespeichert) {
+        return [];
+      }
+      return JSON.parse(gespeichert).map(ergaenzeFehlendeFelder);
+    }
+
+    // Ältere Einträge (vor Einführung von Foto/Methode/Uhrzeit/Wetter/Besonderheiten/
+    // Standort) hatten diese Felder noch nicht. Damit sie nicht kaputtgehen, ergänzen
+    // wir hier sinnvolle Leerwerte - die fehlenden Felder werden einfach leer angezeigt.
+    function ergaenzeFehlendeFelder(fang) {
+      return {
+        methode: "",
+        foto: null,
+        uhrzeit: "",
+        wetter: "",
+        besonderheiten: "",
+        standortLat: null,
+        standortLng: null,
+        standortName: null,
+        windGeschwindigkeit: null,
+        windRichtung: null,
+        bewoelkung: null,
+        luftdruck: null,
+        luftdruckTrend: "",
+        niederschlag: null,
+        niederschlagswahrscheinlichkeit: null,
+        uvIndex: null,
+        sonnenaufgang: "",
+        sonnenuntergang: "",
+        ...fang
+      };
+    }
+
+    // Liste in localStorage speichern
+    function speichereFaenge(faenge) {
+      localStorage.setItem(SPEICHER_SCHLUESSEL, JSON.stringify(faenge));
+    }
+
+    // Aktuelle Liste im Arbeitsspeicher der Seite
+    let faenge = ladeFaenge();
+
+    // ---------------------------------------------------------
+    // Datum für die Anzeige hübsch formatieren: 2026-07-27 -> 27.07.2026
+    // ---------------------------------------------------------
+    function formatiereDatum(isoDatum) {
+      const [jahr, monat, tag] = isoDatum.split("-");
+      return `${tag}.${monat}.${jahr}`;
+    }
+
+    // ---------------------------------------------------------
+    // Mondphase berechnen - rein rechnerisch, ohne externe API.
+    // Nutzt den bekannten Näherungs-Algorithmus von John Conway: er zählt die
+    // Tage seit einem bekannten Neumond-Datum und teilt sie durch die Länge
+    // eines Mondzyklus (ca. 29,53 Tage). Der Rest ("bruchteil", 0-1) verrät,
+    // wo im Zyklus wir gerade stehen. Für den Text-Label wird daraus weiterhin
+    // eine von 8 benannten Phasen abgeleitet - das Icon selbst nutzt aber den
+    // durchgehenden Bruchteil direkt (siehe baueMondPfad()), statt nur 8 feste
+    // Emoji-Zustände zu kennen.
+    // ---------------------------------------------------------
+    const MONDPHASEN_LABEL = [
+      "Neumond", "Zunehmende Sichel", "Zunehmender Halbmond", "Zunehmender Dreiviertelmond",
+      "Vollmond", "Abnehmender Dreiviertelmond", "Abnehmender Halbmond", "Abnehmende Sichel"
+    ];
+
+    function mondphaseFuerDatum(isoDatum) {
+      let [jahr, monat, tag] = isoDatum.split("-").map(Number);
+
+      if (monat < 3) {
+        jahr--;
+        monat += 12;
+      }
+      monat++;
+
+      const c = 365.25 * jahr;
+      const e = 30.6 * monat;
+      let jd = c + e + tag - 694039.09; // Tage seit einem bekannten Referenz-Neumond
+      jd /= 29.5305882; // ein Mondzyklus dauert ca. 29,53 Tage
+      jd -= Math.floor(jd); // nur der Bruchteil zählt = Position im aktuellen Zyklus (0-1)
+
+      let labelIndex = Math.round(jd * 8); // für den Text weiterhin in 8 Phasen einteilen
+      if (labelIndex >= 8) {
+        labelIndex = 0; // 8 ist dieselbe Phase wie 0 (Neumond)
+      }
+      return { label: MONDPHASEN_LABEL[labelIndex], bruchteil: jd };
+    }
+
+    // Baut den SVG-Pfad für die beleuchtete Mondfläche direkt aus dem
+    // Bruchteil (0 = Neumond, 0.5 = Vollmond, 1 = wieder Neumond) - liefert
+    // dadurch für jeden Tag eine passgenaue Form statt nur 8 fixer Symbole.
+    // Funktionsweise siehe Erklärung am Ende der Umsetzung.
+    function baueMondPfad(bruchteil) {
+      const cx = 12, cy = 12, r = 9;
+      const winkel = bruchteil * 2 * Math.PI;
+      const rx = Math.abs(r * Math.cos(winkel)); // Breite der Terminator-Ellipse
+      const wachsend = bruchteil <= 0.5;
+      const hellSeiteSweep = wachsend ? 1 : 0; // 1 = rechter Rand hell, 0 = linker Rand hell
+
+      // Eine "Linse" zwischen dem Kreisrand (Radius r) und der Terminator-
+      // Ellipse (Radius rx) - je nach Phase entweder die beleuchtete Sichel
+      // selbst oder (bei Gibbous/Vollmond) das abzuziehende dunkle Stück.
+      function baueLinse(randSweep) {
+        const terminatorSweep = randSweep === 1 ? 0 : 1;
+        return `M ${cx} ${cy - r} A ${r} ${r} 0 0 ${randSweep} ${cx} ${cy + r} A ${rx} ${r} 0 0 ${terminatorSweep} ${cx} ${cy - r} Z`;
+      }
+
+      const istSichel = bruchteil <= 0.25 || bruchteil >= 0.75; // weniger als die Hälfte beleuchtet
+      if (istSichel) {
+        return baueLinse(hellSeiteSweep);
+      }
+      // Gibbous/Vollmond: ganzer Kreis beleuchtet, minus einer schmalen dunklen
+      // Linse auf der Schattenseite - "fill-rule: evenodd" zieht sie als Loch ab.
+      const kreis = `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+      return kreis + " " + baueLinse(hellSeiteSweep === 1 ? 0 : 1);
+    }
+
+    // Fertiges Mond-Icon (Kreisumriss + beleuchtete Fläche) für eine Fangkarte
+    function baueMondIcon(bruchteil) {
+      return `<svg class="mond-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.3" opacity="0.4"/><path d="${baueMondPfad(bruchteil)}" fill="currentColor" fill-rule="evenodd"/></svg>`;
+    }
+
+    // Baut eine einzelne Detail-Zeile (Icon + Text) - oder einen leeren String,
+    // wenn für dieses Feld kein Wert vorhanden ist.
+    function baueDetailZeile(iconName, wert, akzentFarbe) {
+      if (!wert) {
+        return "";
+      }
+      const iconKlasse = akzentFarbe ? "icon akzent" : "icon";
+      return `<div class="detail-zeile"><span class="${iconKlasse}">${ICONS[iconName]}</span><span>${wert}</span></div>`;
+    }
+
+    // Wind-Zeile: Pfeil-Icon wird per Inline-Style nach windRichtung gedreht
+    function baueWindZeile(fang) {
+      if (fang.windGeschwindigkeit == null) {
+        return "";
+      }
+      const richtungStil = fang.windRichtung != null
+        ? ` style="display:inline-block; transform: rotate(${fang.windRichtung}deg);"`
+        : "";
+      return `<div class="detail-zeile"><span class="icon"${richtungStil}>${ICONS.wind}</span><span>${fang.windGeschwindigkeit} km/h</span></div>`;
+    }
+
+    // Bewölkung-Zeile: Icon-Variante je nach Prozentsatz (leicht/mittel/stark)
+    function baueBewoelkungZeile(fang) {
+      if (fang.bewoelkung == null) {
+        return "";
+      }
+      const iconName = fang.bewoelkung < 30 ? "wolkeGering" : fang.bewoelkung <= 70 ? "wolkeMittel" : "wolkeStark";
+      return `<div class="detail-zeile"><span class="icon">${ICONS[iconName]}</span><span>${fang.bewoelkung}% bewölkt</span></div>`;
+    }
+
+    // Luftdruck-Trend-Zeile: eigenes Icon je nach Trend (rauf/runter/waagerecht)
+    function baueLuftdruckZeile(fang) {
+      if (fang.luftdruck == null) {
+        return "";
+      }
+      const iconName = fang.luftdruckTrend === "steigend" ? "luftdruckSteigend"
+        : fang.luftdruckTrend === "fallend" ? "luftdruckFallend"
+        : "luftdruckStabil";
+      return `<div class="detail-zeile"><span class="icon">${ICONS[iconName]}</span><span>${fang.luftdruck} hPa (${fang.luftdruckTrend})</span></div>`;
+    }
+
+    // Niederschlag-Zeile: wird bei 0 mm bewusst weggelassen (kein "0mm Regen")
+    function baueNiederschlagZeile(fang) {
+      if (!fang.niederschlag) {
+        return "";
+      }
+      const wahrscheinlichkeitText = fang.niederschlagswahrscheinlichkeit != null
+        ? ` (${fang.niederschlagswahrscheinlichkeit}% Wahrscheinlichkeit)`
+        : "";
+      return `<div class="detail-zeile"><span class="icon">${ICONS.niederschlag}</span><span>${fang.niederschlag} mm${wahrscheinlichkeitText}</span></div>`;
+    }
+
+    // Sonnenauf-/-untergang: zwei Icon+Zeit-Paare in einer gemeinsamen Zeile
+    function baueSonnenzeitenZeile(fang) {
+      if (!fang.sonnenaufgang && !fang.sonnenuntergang) {
+        return "";
+      }
+      const teile = [];
+      if (fang.sonnenaufgang) {
+        teile.push(`<span class="icon">${ICONS.sonnenaufgang}</span><span>${fang.sonnenaufgang}</span>`);
+      }
+      if (fang.sonnenuntergang) {
+        teile.push(`<span class="icon">${ICONS.sonnenuntergang}</span><span>${fang.sonnenuntergang}</span>`);
+      }
+      return `<div class="detail-zeile">${teile.join("")}</div>`;
+    }
+
+    // ---------------------------------------------------------
+    // PB (Personal Best): pro Fischart den Eintrag mit der größten Länge finden.
+    // Fischart-Namen werden getrimmt und kleingeschrieben verglichen, damit
+    // "Hecht" und "hecht " als dieselbe Art zählen. Einträge ohne Längenangabe
+    // zählen nicht mit. Bei einem Gleichstand werden alle betroffenen Einträge
+    // markiert.
+    // ---------------------------------------------------------
+    function ermittlePbIds(alleFaenge) {
+      const maxLaengeProArt = {};
+
+      alleFaenge.forEach(fang => {
+        if (!fang.laenge) return;
+        const art = fang.fischart.trim().toLowerCase();
+        const laenge = parseFloat(fang.laenge);
+        if (!(art in maxLaengeProArt) || laenge > maxLaengeProArt[art]) {
+          maxLaengeProArt[art] = laenge;
+        }
+      });
+
+      const pbIds = new Set();
+      alleFaenge.forEach(fang => {
+        if (!fang.laenge) return;
+        const art = fang.fischart.trim().toLowerCase();
+        if (parseFloat(fang.laenge) === maxLaengeProArt[art]) {
+          pbIds.add(fang.id);
+        }
+      });
+
+      return pbIds;
+    }
+
+    // ---------------------------------------------------------
+    // Kennzahlen für die Dashboard-Startansicht "Übersicht" berechnen
+    // ---------------------------------------------------------
+    function berechneKennzahlen(alleFaenge) {
+      const fischartenSet = new Set(alleFaenge.map(fang => fang.fischart.trim().toLowerCase()));
+      const angeltageSet = new Set(alleFaenge.map(fang => fang.datum));
+
+      let groessterFang = null;
+      alleFaenge.forEach(fang => {
+        if (!fang.laenge) return;
+        const laenge = parseFloat(fang.laenge);
+        if (!groessterFang || laenge > groessterFang.laenge) {
+          groessterFang = { laenge, fischart: fang.fischart };
+        }
+      });
+
+      return {
+        gesamt: alleFaenge.length,
+        fischarten: fischartenSet.size,
+        angeltage: angeltageSet.size,
+        groessterFang
+      };
+    }
+
+    // Füllt die Kennzahlen-Karten und die Vorschau der letzten 3 Fänge
+    function zeigeUebersicht() {
+      const kennzahlen = berechneKennzahlen(faenge);
+
+      document.getElementById("kennzahl-gesamt").textContent = kennzahlen.gesamt;
+      document.getElementById("kennzahl-fischarten").textContent = kennzahlen.fischarten;
+      document.getElementById("kennzahl-angeltage").textContent = kennzahlen.angeltage;
+
+      const groessterElement = document.getElementById("kennzahl-groesster");
+      groessterElement.innerHTML = kennzahlen.groessterFang
+        ? `${kennzahlen.groessterFang.fischart} <span class="einheit">${kennzahlen.groessterFang.laenge} cm</span>`
+        : "–";
+
+      const listeElement = document.getElementById("letzte-faenge-liste");
+      if (faenge.length === 0) {
+        listeElement.innerHTML = '<p class="leer-hinweis">Noch keine Fänge eingetragen.</p>';
+        return;
+      }
+
+      const pbIds = ermittlePbIds(faenge);
+      const letzteFaenge = [...faenge].sort((a, b) => b.datum.localeCompare(a.datum)).slice(0, 3);
+
+      listeElement.innerHTML = letzteFaenge.map(fang => {
+        const pbBadge = pbIds.has(fang.id) ? `<span class="mini-fang-pb">${ICONS.pokal} PB</span>` : "";
+        const laengeBadge = fang.laenge ? `<span class="mini-fang-laenge">${fang.laenge} cm</span>` : "";
+        return `
+          <div class="mini-fang-karte" onclick="bearbeiteFang('${fang.id}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); bearbeiteFang('${fang.id}'); }" role="button" tabindex="0">
+            <span class="mini-fang-icon">${ICONS.gewaesser}</span>
+            <div class="mini-fang-mitte">
+              <div class="mini-fang-art">${fang.fischart} ${pbBadge}</div>
+              <div class="mini-fang-meta">${formatiereDatum(fang.datum)} · ${fang.gewaesser}</div>
+            </div>
+            ${laengeBadge}
+          </div>
+        `;
+      }).join("");
+    }
+
+    // ---------------------------------------------------------
+    // Die Liste der Fänge auf der Seite anzeigen
+    // ---------------------------------------------------------
+    function zeigeFaenge() {
+      const listeElement = document.getElementById("fang-liste");
+
+      if (faenge.length === 0) {
+        listeElement.innerHTML = '<p class="leer-hinweis">Noch keine Fänge eingetragen.</p>';
+        return;
+      }
+
+      const pbIds = ermittlePbIds(faenge);
+
+      // Neueste Einträge zuerst anzeigen
+      const sortierteFaenge = [...faenge].sort((a, b) => b.datum.localeCompare(a.datum));
+
+      // HTML für jeden Eintrag bauen und zusammenfügen
+      listeElement.innerHTML = sortierteFaenge.map(fang => {
+        const uhrzeitText = fang.uhrzeit ? `, ${fang.uhrzeit}` : "";
+        const mondphase = mondphaseFuerDatum(fang.datum);
+        const laengeBadge = fang.laenge ? `<span class="badge-laenge">${fang.laenge} cm</span>` : "";
+        const pbBadge = pbIds.has(fang.id) ? `<span class="badge-pb">${ICONS.pokal} PB</span>` : "";
+        const fotoHtml = fang.foto ? `<img class="fang-foto" src="${fang.foto}" alt="Foto vom Fang">` : "";
+
+        const standortText = fang.standortLat != null
+          ? (fang.standortName || `${fang.standortLat.toFixed(4)}, ${fang.standortLng.toFixed(4)}`)
+          : "";
+
+        // Detail-Zeilen: jede nur, wenn ein Wert vorhanden ist
+        const detailZeilen = [
+          baueDetailZeile("gewaesser", fang.gewaesser),
+          baueDetailZeile("koeder", fang.koeder),
+          baueDetailZeile("methode", fang.methode),
+          baueDetailZeile("wetter", fang.wetter),
+          baueWindZeile(fang),
+          baueBewoelkungZeile(fang),
+          baueLuftdruckZeile(fang),
+          baueNiederschlagZeile(fang),
+          baueDetailZeile("uv", fang.uvIndex != null ? `UV-Index ${fang.uvIndex}` : ""),
+          baueSonnenzeitenZeile(fang),
+          baueDetailZeile("standort", standortText),
+          baueDetailZeile("besonderheiten", fang.besonderheiten, true),
+          baueDetailZeile("notizen", fang.notizen)
+        ].join("");
+
+        return `
+          <div class="fang-eintrag">
+            ${fotoHtml}
+            <div class="eintrag-inhalt">
+              <div class="eintrag-kopf-zeile">
+                <h3 class="fischart">${fang.fischart}</h3>
+                <div class="kopf-badges">
+                  ${pbBadge}
+                  ${laengeBadge}
+                </div>
+              </div>
+              <div class="eintrag-meta">${formatiereDatum(fang.datum)}${uhrzeitText} · ${baueMondIcon(mondphase.bruchteil)} ${mondphase.label}</div>
+              <div class="eintrag-details">
+                ${detailZeilen}
+              </div>
+              <div class="aktionen">
+                <button type="button" class="aktion-btn bearbeiten-btn" onclick="bearbeiteFang('${fang.id}')">${ICONS.bearbeiten} Bearbeiten</button>
+                <button type="button" class="aktion-btn loeschen-btn" onclick="loescheFang('${fang.id}')">${ICONS.loeschen} Löschen</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // ---------------------------------------------------------
+    // Einen Eintrag anhand seiner ID löschen
+    // ---------------------------------------------------------
+    function loescheFang(id) {
+      const sicherLoeschen = confirm("Diesen Eintrag wirklich löschen?");
+      if (!sicherLoeschen) {
+        return;
+      }
+      faenge = faenge.filter(fang => fang.id !== id);
+      speichereFaenge(faenge);
+      aktualisiereAlleAnsichten();
+
+      // Falls gerade genau dieser Eintrag im Formular bearbeitet wurde: Formular zurücksetzen
+      if (id === bearbeitungsId) {
+        bearbeitungAbbrechen();
+      }
+    }
+
+    // ---------------------------------------------------------
+    // Bearbeiten-Modus
+    // ---------------------------------------------------------
+    // "bearbeitungsId" merkt sich, welcher Eintrag gerade bearbeitet wird.
+    // Ist der Wert null, legt das Formular beim Speichern einen NEUEN Eintrag an.
+    // Ist eine ID gesetzt, wird beim Speichern der BESTEHENDE Eintrag aktualisiert.
+    let bearbeitungsId = null;
+
+    // Öffnet den Formular-Dialog leer, für einen komplett neuen Fang.
+    function formularOeffnenNeu() {
+      bearbeitungAbbrechen(); // stellt sicher: leeres Formular, "neuer Eintrag"-Zustand
+      document.getElementById("formular-dialog").showModal();
+    }
+
+    // ---------------------------------------------------------
+    // Automatisch ermittelte Wetter-Zusatzwerte (Wind, Bewölkung, Luftdruck-
+    // Trend, Niederschlag, UV-Index, Sonnenzeiten). Diese Werte sind NICHT im
+    // Formular editierbar - sie werden nur als Vorschau angezeigt und beim
+    // Speichern zusammen mit dem Fang übernommen. null = noch nichts ermittelt.
+    // ---------------------------------------------------------
+    let automatischeWetterZusatzwerte = null;
+
+    // ---------------------------------------------------------
+    // Foto-Auswahl im Formular (Vorschau + Entfernen-Button).
+    // "fotoWurdeEntfernt" ist nötig, weil "kein neu ausgewähltes Foto" beim
+    // Bearbeiten bisher automatisch "bisheriges Foto behalten" bedeutete
+    // (siehe Submit-Handler) - über den "×"-Button muss sich das Entfernen
+    // eines vorhandenen Fotos aber explizit von "nichts geändert" unterscheiden
+    // lassen. "aktuelleFotoVorschauObjectUrl" merkt sich eine über
+    // URL.createObjectURL() erzeugte Vorschau-URL, damit sie beim Ersetzen/
+    // Entfernen wieder freigegeben wird (sonst sammeln sich Blob-URLs an).
+    // ---------------------------------------------------------
+    let fotoWurdeEntfernt = false;
+    let aktuelleFotoVorschauObjectUrl = null;
+
+    // Zeigt die Vorschau (neu gewähltes Foto als Object-URL ODER beim
+    // Bearbeiten das bereits gespeicherte Foto als Base64-Daten-URL) und
+    // blendet dafür die gestrichelte Auswahlzone aus.
+    function zeigeFotoVorschau(quelle) {
+      document.getElementById("foto-vorschau-bild").src = quelle;
+      document.getElementById("foto-upload-zone").style.display = "none";
+      document.getElementById("foto-vorschau-bereich").style.display = "inline-block";
+    }
+
+    // Blendet die Vorschau wieder aus und zeigt stattdessen wieder die
+    // Auswahlzone - Ausgangszustand ohne gewähltes Foto.
+    function verstecktFotoVorschau() {
+      document.getElementById("foto-vorschau-bild").src = "";
+      document.getElementById("foto-upload-zone").style.display = "flex";
+      document.getElementById("foto-vorschau-bereich").style.display = "none";
+    }
+
+    // Wird vom "×"-Button auf der Vorschau aufgerufen: leert die Dateiauswahl
+    // und merkt sich, dass ein evtl. vorhandenes gespeichertes Foto beim
+    // Speichern NICHT mehr übernommen werden soll (siehe Submit-Handler).
+    function entferneAusgewaehltesFoto() {
+      fotoWurdeEntfernt = true;
+      document.getElementById("foto").value = "";
+      if (aktuelleFotoVorschauObjectUrl) {
+        URL.revokeObjectURL(aktuelleFotoVorschauObjectUrl);
+        aktuelleFotoVorschauObjectUrl = null;
+      }
+      verstecktFotoVorschau();
+    }
+
+    // Neue Datei ausgewählt (Kamera-Aufnahme ODER Galerie-Auswahl, siehe
+    // Kommentar am <input type="file"> im HTML) -> sofort eine Vorschau
+    // anzeigen, ohne auf das Speichern zu warten.
+    document.getElementById("foto").addEventListener("change", function () {
+      fotoWurdeEntfernt = false;
+      const datei = this.files[0];
+      if (aktuelleFotoVorschauObjectUrl) {
+        URL.revokeObjectURL(aktuelleFotoVorschauObjectUrl);
+        aktuelleFotoVorschauObjectUrl = null;
+      }
+      if (!datei) {
+        verstecktFotoVorschau();
+        return;
+      }
+      aktuelleFotoVorschauObjectUrl = URL.createObjectURL(datei);
+      zeigeFotoVorschau(aktuelleFotoVorschauObjectUrl);
+    });
+
+    // Baut den kleinen Vorschau-Text unterhalb des Wetter-Felds aus den
+    // aktuell ermittelten Zusatzwerten (oder "" falls noch keine vorhanden sind).
+    function baueWetterZusatzVorschauText(zusatz) {
+      if (!zusatz) {
+        return "";
+      }
+      const icon = name => `<span class="hinweis-icon">${ICONS[name]}</span>`;
+      const teile = [];
+      if (zusatz.windGeschwindigkeit != null) {
+        const richtungText = zusatz.windRichtung != null ? ` aus ${zusatz.windRichtung}°` : "";
+        teile.push(`${icon("wind")} ${zusatz.windGeschwindigkeit} km/h${richtungText}`);
+      }
+      if (zusatz.bewoelkung != null) {
+        teile.push(`${icon("wolkeMittel")} ${zusatz.bewoelkung}% bewölkt`);
+      }
+      if (zusatz.luftdruck != null) {
+        const trendIconName = zusatz.luftdruckTrend === "steigend" ? "luftdruckSteigend" : zusatz.luftdruckTrend === "fallend" ? "luftdruckFallend" : "luftdruckStabil";
+        teile.push(`${icon(trendIconName)} ${zusatz.luftdruck} hPa (${zusatz.luftdruckTrend})`);
+      }
+      if (zusatz.niederschlag) {
+        const wahrscheinlichkeitText = zusatz.niederschlagswahrscheinlichkeit != null
+          ? ` (${zusatz.niederschlagswahrscheinlichkeit}%)`
+          : "";
+        teile.push(`${icon("niederschlag")} ${zusatz.niederschlag} mm${wahrscheinlichkeitText}`);
+      }
+      if (zusatz.uvIndex != null) {
+        teile.push(`${icon("uv")} UV ${zusatz.uvIndex}`);
+      }
+      if (zusatz.sonnenaufgang && zusatz.sonnenuntergang) {
+        teile.push(`${icon("sonnenaufgang")} ${zusatz.sonnenaufgang} ${icon("sonnenuntergang")} ${zusatz.sonnenuntergang}`);
+      }
+      return teile.join(" · ");
+    }
+
+    // Aktualisiert die Vorschau-Zeile im Formular anhand des aktuellen Zustands
+    function aktualisiereWetterZusatzVorschau() {
+      document.getElementById("wetter-zusatz-vorschau").innerHTML = baueWetterZusatzVorschauText(automatischeWetterZusatzwerte);
+    }
+
+    // Wird beim Klick auf "Bearbeiten" aufgerufen: öffnet denselben Dialog,
+    // befüllt mit den vorhandenen Werten des Eintrags, damit man sie ändern kann.
+    function bearbeiteFang(id) {
+      const fang = faenge.find(f => f.id === id);
+      if (!fang) {
+        return;
+      }
+
+      document.getElementById("datum").value = fang.datum;
+      document.getElementById("uhrzeit").value = fang.uhrzeit;
+      document.getElementById("gewaesser").value = fang.gewaesser;
+      document.getElementById("fischart").value = fang.fischart;
+      document.getElementById("laenge").value = fang.laenge;
+      document.getElementById("koeder").value = fang.koeder;
+      document.getElementById("methode").value = fang.methode;
+      document.getElementById("wetter").value = fang.wetter;
+      document.getElementById("besonderheiten").value = fang.besonderheiten;
+      document.getElementById("notizen").value = fang.notizen;
+      // Das Datei-Feld "foto" kann aus Sicherheitsgründen nicht per JavaScript
+      // vorbefüllt werden. Das bisherige Foto bleibt trotzdem erhalten, solange
+      // beim Speichern keine neue Datei ausgewählt wird (siehe Submit-Handler unten).
+      // Die Vorschau zeigen wir aber sehr wohl an - direkt aus der bereits
+      // gespeicherten Base64-Daten-URL, ganz ohne <input>.
+      document.getElementById("foto").value = "";
+      fotoWurdeEntfernt = false;
+      if (fang.foto) {
+        zeigeFotoVorschau(fang.foto);
+      } else {
+        verstecktFotoVorschau();
+      }
+
+      bearbeitungsId = id;
+      document.getElementById("formular-titel").textContent = "Fang bearbeiten";
+      document.getElementById("speichern-button").textContent = "Änderungen speichern";
+      document.getElementById("abbrechen-button").style.display = "block";
+
+      document.getElementById("formular-dialog").showModal();
+
+      // Die Karte in "Weitere Details" braucht eine tatsächlich sichtbare Fläche,
+      // um korrekt zu funktionieren - das ist erst jetzt der Fall, da der Dialog
+      // gerade geöffnet wurde. Deshalb wird sie genau an dieser Stelle initialisiert.
+      zeigeFormularKarteFallsNoetig();
+
+      // Automatisch ermittelte Wetter-Zusatzwerte des Eintrags in die Vorschau
+      // übernehmen (sie sind nicht editierbar, bleiben aber beim Bearbeiten erhalten,
+      // solange nicht bewusst über "Neu abrufen" neu ermittelt wird).
+      automatischeWetterZusatzwerte = {
+        windGeschwindigkeit: fang.windGeschwindigkeit,
+        windRichtung: fang.windRichtung,
+        bewoelkung: fang.bewoelkung,
+        luftdruck: fang.luftdruck,
+        luftdruckTrend: fang.luftdruckTrend,
+        niederschlag: fang.niederschlag,
+        niederschlagswahrscheinlichkeit: fang.niederschlagswahrscheinlichkeit,
+        uvIndex: fang.uvIndex,
+        sonnenaufgang: fang.sonnenaufgang,
+        sonnenuntergang: fang.sonnenuntergang
+      };
+      aktualisiereWetterZusatzVorschau();
+
+      // "Weitere Details" automatisch aufklappen, falls dort etwas gespeichert ist -
+      // sonst blieben vorhandene Daten beim Bearbeiten versteckt.
+      const hatZusatzdaten = Boolean(
+        fang.uhrzeit || fang.foto || fang.wetter || fang.besonderheiten || fang.notizen || fang.standortLat != null
+        || fang.windGeschwindigkeit != null || fang.luftdruck != null
+      );
+      document.getElementById("weitere-details").open = hatZusatzdaten;
+
+      // Fangort im Formular übernehmen (oder Auswahl leeren, falls keiner gespeichert ist)
+      if (fang.standortLat != null && fang.standortLng != null) {
+        setzeStandort(fang.standortLat, fang.standortLng, fang.standortName);
+      } else {
+        entferneStandortAuswahl();
+      }
+    }
+
+    // Bricht den Bearbeiten-Modus ab, schließt den Dialog und setzt das Formular
+    // in den Ausgangszustand ("neuer Eintrag") zurück. Wird auch nach
+    // erfolgreichem Speichern sowie über den Schließen-Button (✕) aufgerufen.
+    function bearbeitungAbbrechen() {
+      bearbeitungsId = null;
+      document.getElementById("fang-formular").reset();
+      document.getElementById("datum").valueAsDate = new Date();
+      document.getElementById("formular-titel").textContent = "Neuen Fang eintragen";
+      document.getElementById("speichern-button").textContent = "Fang speichern";
+      document.getElementById("abbrechen-button").style.display = "none";
+      document.getElementById("weitere-details").open = false;
+      document.getElementById("wetter-auto-hinweis").textContent = "";
+      automatischeWetterZusatzwerte = null;
+      aktualisiereWetterZusatzVorschau();
+      // form.reset() leert zwar das <input type="file">, aber nicht unsere
+      // eigene Vorschau/den Entfernen-Zustand - das übernehmen wir hier separat.
+      fotoWurdeEntfernt = false;
+      if (aktuelleFotoVorschauObjectUrl) {
+        URL.revokeObjectURL(aktuelleFotoVorschauObjectUrl);
+        aktuelleFotoVorschauObjectUrl = null;
+      }
+      verstecktFotoVorschau();
+      entferneStandortAuswahl();
+      if (formularKarte) {
+        formularKarte.setView(STANDARD_KARTENZENTRUM, STANDARD_ZOOM);
+      }
+      document.getElementById("formular-dialog").close();
+    }
+
+    // ---------------------------------------------------------
+    // Eine ausgewählte Bilddatei in einen Base64-Text umwandeln.
+    // Base64 ist eine Möglichkeit, Bild-Daten als reinen Text darzustellen -
+    // dadurch passt das Bild zusammen mit den anderen Feldern in localStorage,
+    // ohne dass ein Server nötig ist. FileReader arbeitet asynchron, daher
+    // geben wir hier ein Promise zurück und warten im Submit-Handler darauf.
+    // ---------------------------------------------------------
+    function leseBildAlsBase64(datei) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result); // reader.result ist der fertige Base64-Text
+        reader.onerror = reject;
+        reader.readAsDataURL(datei);
+      });
+    }
+
+    // ===========================================================
+    // STANDORT-AUSWAHL IM FORMULAR (Leaflet-Karte + Ortssuche)
+    // ===========================================================
+    // "ausgewaehlterStandort" hält den aktuell im Formular gewählten Fangort.
+    // null bedeutet: kein Fangort ausgewählt (ist erlaubt, das Feld ist optional).
+    let ausgewaehlterStandort = null;
+    let formularKarte = null;
+    let formularMarker = null;
+
+    // Erstellt die kleine interaktive Karte im Formular. Ein Klick/Antippen auf
+    // die Karte setzt den Fangort an dieser Stelle.
+    function initFormularKarte() {
+      formularKarte = L.map("formular-karte").setView(STANDARD_KARTENZENTRUM, STANDARD_ZOOM);
+
+      // Hinweis: OpenStreetMaps eigene Kartenserver blockieren inzwischen Anfragen
+      // ohne gültigen "Referer"-Header - das trifft lokal per Doppelklick geöffnete
+      // Dateien (file://-Adressen). Deshalb nutzen wir CARTO als Kachel-Anbieter:
+      // ebenfalls kostenlos, ohne API-Key, basiert auf denselben OpenStreetMap-Daten.
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        maxZoom: 20,
+        subdomains: "abcd",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      }).addTo(formularKarte);
+
+      formularKarte.on("click", function (klickEvent) {
+        setzeStandort(klickEvent.latlng.lat, klickEvent.latlng.lng);
+      });
+    }
+
+    // Sorgt dafür, dass die Formular-Karte existiert und ihre Größe korrekt kennt.
+    // Wird aufgerufen, sobald der Karten-Bereich tatsächlich sichtbar ist (Dialog
+    // offen UND "Weitere Details" aufgeklappt) - vorher würde Leaflet die Karte
+    // mit einer Größe von 0x0 berechnen, da der Bereich vorher unsichtbar ist.
+    function zeigeFormularKarteFallsNoetig() {
+      if (!formularKarte) {
+        initFormularKarte();
+      }
+      setTimeout(() => formularKarte.invalidateSize(), 0);
+    }
+
+    // Setzt den gewählten Fangort: platziert den Marker, merkt sich die Koordinaten
+    // und versucht (falls kein Name übergeben wurde) per Reverse-Geocoding einen
+    // lesbaren Ortsnamen zu ermitteln.
+    async function setzeStandort(lat, lng, name) {
+      zeigeFormularKarteFallsNoetig();
+
+      if (formularMarker) {
+        formularMarker.setLatLng([lat, lng]);
+      } else {
+        formularMarker = L.marker([lat, lng]).addTo(formularKarte);
+      }
+      formularKarte.setView([lat, lng], 13);
+
+      // Übergangsweise ohne Namen anzeigen, während die Ortssuche noch läuft
+      ausgewaehlterStandort = { lat, lng, name: name || null };
+      aktualisiereStandortHinweis();
+
+      if (!name) {
+        const gefundenerName = await ermittleOrtsname(lat, lng);
+        // Nur übernehmen, falls der Standort in der Zwischenzeit nicht schon
+        // wieder geändert/entfernt wurde
+        if (ausgewaehlterStandort && ausgewaehlterStandort.lat === lat && ausgewaehlterStandort.lng === lng) {
+          ausgewaehlterStandort.name = gefundenerName;
+          aktualisiereStandortHinweis();
+        }
+      }
+
+      // Jetzt ist ein Fangort bekannt - falls auch schon ein Datum eingetragen
+      // ist und das Wetter-Feld noch leer ist, automatisch das Wetter ermitteln.
+      versucheAutomatischesWetter();
+    }
+
+    // Entfernt den aktuell gewählten Fangort wieder (z. B. beim Formular-Reset)
+    function entferneStandortAuswahl() {
+      ausgewaehlterStandort = null;
+      if (formularMarker) {
+        formularKarte.removeLayer(formularMarker);
+        formularMarker = null;
+      }
+      document.getElementById("standort-suche").value = "";
+      aktualisiereStandortHinweis();
+    }
+
+    // Aktualisiert den kleinen Hinweistext unter der Karte
+    function aktualisiereStandortHinweis() {
+      const hinweisElement = document.getElementById("standort-hinweis");
+      if (!ausgewaehlterStandort) {
+        hinweisElement.textContent = "Noch kein Fangort gewählt.";
+        return;
+      }
+      const { lat, lng, name } = ausgewaehlterStandort;
+      const koordinatenText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      hinweisElement.innerHTML = `<span class="hinweis-icon">${ICONS.standort}</span> ${name || koordinatenText}`;
+    }
+
+    // Reverse-Geocoding: aus Koordinaten einen lesbaren Ortsnamen machen,
+    // über die kostenlose Nominatim-API von OpenStreetMap (kein API-Key nötig).
+    async function ermittleOrtsname(lat, lng) {
+      try {
+        const antwort = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const daten = await antwort.json();
+        return daten.display_name || null;
+      } catch (fehler) {
+        return null; // kein Internet oder Fehler bei der Suche - Koordinaten reichen dann auch
+      }
+    }
+
+    // Ortssuche (Geocoding): aus einem eingegebenen Ortsnamen Koordinaten finden
+    async function sucheStandort() {
+      const suchtext = document.getElementById("standort-suche").value.trim();
+      if (!suchtext) {
+        return;
+      }
+
+      try {
+        const antwort = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(suchtext)}&limit=1`);
+        const ergebnisse = await antwort.json();
+        if (ergebnisse.length === 0) {
+          alert("Kein Ort gefunden. Bitte anders formulieren oder direkt auf der Karte antippen.");
+          return;
+        }
+        const treffer = ergebnisse[0];
+        setzeStandort(parseFloat(treffer.lat), parseFloat(treffer.lon), treffer.display_name);
+      } catch (fehler) {
+        alert("Die Ortssuche hat nicht funktioniert. Bitte Internetverbindung prüfen oder direkt auf der Karte antippen.");
+      }
+    }
+
+    document.getElementById("standort-suchen-button").addEventListener("click", sucheStandort);
+
+    // "Weitere Details" manuell aufgeklappt (z. B. bei einem brandneuen Eintrag) ->
+    // spätestens jetzt muss die Formular-Karte existieren und ihre Größe kennen.
+    document.getElementById("weitere-details").addEventListener("toggle", function () {
+      if (this.open) {
+        zeigeFormularKarteFallsNoetig();
+      }
+    });
+
+    // ===========================================================
+    // AUTOMATISCHE WETTERANBINDUNG (Open-Meteo, kostenlos, kein API-Key)
+    // ===========================================================
+    // WMO-Wettercodes (Standard, den Open-Meteo verwendet) in verständlichen
+    // deutschen Text + Emoji übersetzt. Unbekannte Codes fallen auf "Wechselhaft" zurück.
+    // Reiner Text ohne Emoji - die passende Symbolik liefert jetzt ausschließlich
+    // svgFuerWettercode() als Linien-Icon (siehe ICONS.wetterSonne/-Nebel/-Regen/
+    // -Schnee/-Gewitter sowie die bestehenden wolkeGering/Mittel/Stark-Icons).
+    const WETTERCODES = {
+      0: "Klarer Himmel",
+      1: "Überwiegend klar",
+      2: "Teilweise bewölkt",
+      3: "Bedeckt",
+      45: "Nebel",
+      48: "Nebel mit Reifablagerung",
+      51: "Leichter Nieselregen",
+      53: "Mäßiger Nieselregen",
+      55: "Starker Nieselregen",
+      56: "Leichter gefrierender Niesel",
+      57: "Starker gefrierender Niesel",
+      61: "Leichter Regen",
+      63: "Mäßiger Regen",
+      65: "Starker Regen",
+      66: "Leichter gefrierender Regen",
+      67: "Starker gefrierender Regen",
+      71: "Leichter Schneefall",
+      73: "Mäßiger Schneefall",
+      75: "Starker Schneefall",
+      77: "Schneegriesel",
+      80: "Leichte Regenschauer",
+      81: "Mäßige Regenschauer",
+      82: "Heftige Regenschauer",
+      85: "Leichte Schneeschauer",
+      86: "Starke Schneeschauer",
+      95: "Gewitter",
+      96: "Gewitter mit leichtem Hagel",
+      99: "Gewitter mit starkem Hagel"
+    };
+
+    // Ordnet einen WMO-Wettercode dem passenden Linien-Icon zu (statt der
+    // bisherigen Emoji-Vorsilbe in WETTERCODES). Die drei Bewölkungsgrad-Icons
+    // werden bewusst wiederverwendet - "teilweise bewölkt" nutzt so dasselbe
+    // Symbol wie eine mittlere Bewölkung in den Fang-Details.
+    function svgFuerWettercode(code) {
+      if (code === 0) return ICONS.wetterSonne;
+      if (code === 1) return ICONS.wolkeGering;
+      if (code === 2) return ICONS.wolkeMittel;
+      if (code === 3) return ICONS.wolkeStark;
+      if (code === 45 || code === 48) return ICONS.wetterNebel;
+      if ([71, 73, 75, 77, 85, 86].includes(code)) return ICONS.wetterSchnee;
+      if ([95, 96, 99].includes(code)) return ICONS.wetterGewitter;
+      return ICONS.wetterRegen; // alle übrigen Codes: Niesel/Regen/Regenschauer
+    }
+
+    // Fragt bei Open-Meteo das Wetter für den gewählten Fangort zum Fangdatum/
+    // zur Fanguhrzeit ab und baut daraus einen lesbaren Text. Gibt null zurück,
+    // falls etwas fehlt oder die Abfrage fehlschlägt.
+    async function ermittleWetterAutomatisch() {
+      if (!ausgewaehlterStandort) {
+        return null;
+      }
+      const datum = document.getElementById("datum").value;
+      if (!datum) {
+        return null;
+      }
+      const uhrzeit = document.getElementById("uhrzeit").value || "12:00"; // ohne Angabe: Mittag annehmen
+
+      // Für weiter zurückliegende Fänge braucht es die Archiv-API (historische
+      // Reanalyse-Daten), für aktuelle/kürzliche die normale Vorhersage-API -
+      // beide liefern dasselbe "hourly"-Datenformat.
+      const heute = new Date();
+      const fangDatum = new Date(datum + "T00:00:00");
+      const tageInDerVergangenheit = Math.round((heute - fangDatum) / (1000 * 60 * 60 * 24));
+      const basisUrl = tageInDerVergangenheit > 5
+        ? "https://archive-api.open-meteo.com/v1/archive"
+        : "https://api.open-meteo.com/v1/forecast";
+
+      // "hourly" liefert zusätzlich zur Fangstunde automatisch auch die Stunden
+      // davor mit - das nutzen wir unten für den Luftdruck-Trend, ohne einen
+      // zweiten API-Aufruf zu brauchen. "daily" liefert Sonnenauf-/-untergang.
+      const url = `${basisUrl}?latitude=${ausgewaehlterStandort.lat}&longitude=${ausgewaehlterStandort.lng}`
+        + `&start_date=${datum}&end_date=${datum}`
+        + `&hourly=temperature_2m,windspeed_10m,winddirection_10m,cloudcover,weathercode,pressure_msl,precipitation,precipitation_probability,uv_index`
+        + `&daily=sunrise,sunset&timezone=auto`;
+
+      try {
+        const antwort = await fetch(url);
+        const daten = await antwort.json();
+        if (!daten.hourly || !daten.hourly.time || daten.hourly.time.length === 0) {
+          return null;
+        }
+
+        // Die Stunde finden, die der Fangzeit am nächsten liegt
+        const zielZeitpunkt = new Date(`${datum}T${uhrzeit}`);
+        let bestIndex = 0;
+        let bestDiff = Infinity;
+        daten.hourly.time.forEach((zeitpunkt, index) => {
+          const diff = Math.abs(new Date(zeitpunkt) - zielZeitpunkt);
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestIndex = index;
+          }
+        });
+
+        const temperatur = daten.hourly.temperature_2m[bestIndex];
+        const wind = daten.hourly.windspeed_10m[bestIndex];
+        const code = daten.hourly.weathercode[bestIndex];
+        const beschreibung = WETTERCODES[code] || "Wechselhaft";
+
+        if (temperatur == null || wind == null) {
+          return null;
+        }
+
+        // Windrichtung und Bewölkung: einfach der Wert derselben Stunde
+        const windrichtungReihe = daten.hourly.winddirection_10m;
+        const windRichtung = windrichtungReihe && windrichtungReihe[bestIndex] != null
+          ? Math.round(windrichtungReihe[bestIndex])
+          : null;
+        const bewoelkungReihe = daten.hourly.cloudcover;
+        const bewoelkung = bewoelkungReihe && bewoelkungReihe[bestIndex] != null
+          ? Math.round(bewoelkungReihe[bestIndex])
+          : null;
+
+        // Luftdruck-Trend: Differenz zwischen der Fangstunde und der Stunde
+        // 3 Stunden davor (oder der frühesten verfügbaren, falls die Fangstunde
+        // näher am Tagesanfang liegt). ±1 hPa gilt als "stabil".
+        const luftdruckReihe = daten.hourly.pressure_msl;
+        let luftdruck = null;
+        let luftdruckTrend = "";
+        if (luftdruckReihe && luftdruckReihe[bestIndex] != null) {
+          luftdruck = Math.round(luftdruckReihe[bestIndex]);
+          const vorherIndex = Math.max(0, bestIndex - 3);
+          const druckVorher = luftdruckReihe[vorherIndex];
+          if (druckVorher != null && vorherIndex !== bestIndex) {
+            const differenz = luftdruckReihe[bestIndex] - druckVorher;
+            if (differenz > 1) {
+              luftdruckTrend = "steigend";
+            } else if (differenz < -1) {
+              luftdruckTrend = "fallend";
+            } else {
+              luftdruckTrend = "stabil";
+            }
+          } else {
+            luftdruckTrend = "stabil";
+          }
+        }
+
+        const niederschlagReihe = daten.hourly.precipitation;
+        const niederschlag = niederschlagReihe && niederschlagReihe[bestIndex] != null
+          ? Math.round(niederschlagReihe[bestIndex] * 10) / 10
+          : null;
+        const niederschlagswahrscheinlichkeitReihe = daten.hourly.precipitation_probability;
+        const niederschlagswahrscheinlichkeit = niederschlagswahrscheinlichkeitReihe && niederschlagswahrscheinlichkeitReihe[bestIndex] != null
+          ? Math.round(niederschlagswahrscheinlichkeitReihe[bestIndex])
+          : null;
+        const uvIndexReihe = daten.hourly.uv_index;
+        const uvIndex = uvIndexReihe && uvIndexReihe[bestIndex] != null
+          ? Math.round(uvIndexReihe[bestIndex] * 10) / 10
+          : null;
+
+        // "daily"-Werte: nur ein Eintrag pro Tag, einfach übernehmen.
+        // Format von Open-Meteo z. B. "2026-07-28T05:42" -> nur "HH:MM" behalten.
+        let sonnenaufgang = "";
+        let sonnenuntergang = "";
+        if (daten.daily && daten.daily.sunrise && daten.daily.sunrise[0]) {
+          sonnenaufgang = daten.daily.sunrise[0].slice(11, 16);
+        }
+        if (daten.daily && daten.daily.sunset && daten.daily.sunset[0]) {
+          sonnenuntergang = daten.daily.sunset[0].slice(11, 16);
+        }
+
+        return {
+          wetterText: `${beschreibung}, ${Math.round(temperatur)}°C`,
+          windGeschwindigkeit: Math.round(wind),
+          windRichtung,
+          bewoelkung,
+          luftdruck,
+          luftdruckTrend,
+          niederschlag,
+          niederschlagswahrscheinlichkeit,
+          uvIndex,
+          sonnenaufgang,
+          sonnenuntergang
+        };
+      } catch (fehler) {
+        return null; // kein Internet oder Wetterdienst nicht erreichbar
+      }
+    }
+
+    // Automatischer, NICHT-überschreibender Trigger: läuft z. B. direkt nach dem
+    // Setzen eines Fangorts. Füllt das Wetter-Feld nur, wenn es noch leer ist -
+    // ein manuell eingetragener oder aus einem bestehenden Eintrag geladener
+    // Wetter-Text wird nie automatisch überschrieben.
+    async function versucheAutomatischesWetter() {
+      const wetterFeld = document.getElementById("wetter");
+      if (wetterFeld.value.trim()) {
+        return;
+      }
+      if (!ausgewaehlterStandort || !document.getElementById("datum").value) {
+        return;
+      }
+
+      const hinweisElement = document.getElementById("wetter-auto-hinweis");
+      hinweisElement.textContent = "Wetter wird ermittelt …";
+
+      const ergebnis = await ermittleWetterAutomatisch();
+
+      // Zwischenzeitlich könnte der Nutzer selbst schon etwas eingetragen haben -
+      // dann jetzt nichts überschreiben.
+      if (wetterFeld.value.trim()) {
+        return;
+      }
+
+      if (ergebnis) {
+        wetterFeld.value = ergebnis.wetterText;
+        automatischeWetterZusatzwerte = ergebnis;
+        aktualisiereWetterZusatzVorschau();
+        hinweisElement.innerHTML = `<span class="hinweis-icon">${ICONS.wetterSonne}</span> Automatisch ermittelt - kann frei angepasst werden.`;
+      } else {
+        hinweisElement.textContent = "Wetter konnte nicht automatisch ermittelt werden.";
+      }
+    }
+
+    // Manueller Trigger für den "🔄 Neu abrufen"-Link: überschreibt bewusst auch
+    // ein bereits ausgefülltes Wetter-Feld (z. B. nach Änderung des Fangorts).
+    async function wetterNeuAbrufen() {
+      if (!ausgewaehlterStandort) {
+        alert("Bitte zuerst einen Fangort suchen oder auf der Karte antippen.");
+        return;
+      }
+      if (!document.getElementById("datum").value) {
+        alert("Bitte zuerst ein Datum eintragen.");
+        return;
+      }
+
+      const hinweisElement = document.getElementById("wetter-auto-hinweis");
+      hinweisElement.textContent = "Wetter wird ermittelt …";
+
+      const ergebnis = await ermittleWetterAutomatisch();
+      if (ergebnis) {
+        document.getElementById("wetter").value = ergebnis.wetterText;
+        automatischeWetterZusatzwerte = ergebnis;
+        aktualisiereWetterZusatzVorschau();
+        hinweisElement.innerHTML = `<span class="hinweis-icon">${ICONS.wetterSonne}</span> Automatisch ermittelt - kann frei angepasst werden.`;
+      } else {
+        hinweisElement.textContent = "Wetter konnte nicht automatisch ermittelt werden.";
+      }
+    }
+
+    // Ändert der Nutzer Datum oder Uhrzeit (und es ist schon ein Fangort gesetzt),
+    // erneut den nicht-überschreibenden Auto-Trigger versuchen.
+    document.getElementById("datum").addEventListener("change", versucheAutomatischesWetter);
+    document.getElementById("uhrzeit").addEventListener("change", versucheAutomatischesWetter);
+
+    // ===========================================================
+    // KARTENÜBERSICHT (zeigt alle Fänge mit gespeichertem Standort)
+    // ===========================================================
+    let uebersichtsKarte = null;
+    let uebersichtsMarkerGruppe = null;
+
+    // Die Übersichtskarte wird erst erzeugt, wenn sie zum ersten Mal angezeigt wird -
+    // Leaflet-Karten in einem zu dem Zeitpunkt unsichtbaren (display: none) Element
+    // würden sonst mit falscher Größe berechnet.
+    function initUebersichtsKarteFallsNoetig() {
+      if (uebersichtsKarte) {
+        return;
+      }
+      uebersichtsKarte = L.map("uebersichts-karte").setView(STANDARD_KARTENZENTRUM, STANDARD_ZOOM);
+      basisKartenLayer = L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
+        maxZoom: 20,
+        subdomains: "abcd",
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      }).addTo(uebersichtsKarte);
+      uebersichtsMarkerGruppe = L.layerGroup().addTo(uebersichtsKarte);
+
+      // Die Wind-/Wolken-/Satellit-Toggle-Buttons sitzen als normales HTML im
+      // Kachel-Header (siehe #ansicht-karte), nicht mehr als Leaflet-Control -
+      // ihre Klick-Handler sind direkt per onclick="..." im HTML verdrahtet.
+
+      // Bei jeder Kartenbewegung das Wind-Raster neu berechnen - aber gedrosselt
+      // (debounced), damit nicht bei jedem Pixel Bewegung ein neuer Aufruf startet,
+      // und nur, solange der Wind-Layer überhaupt aktiv ist.
+      uebersichtsKarte.on("moveend zoomend", function () {
+        if (windLayerAktiv) {
+          clearTimeout(windAbfrageTimeout);
+          windAbfrageTimeout = setTimeout(aktualisiereWindLayer, 800);
+        }
+        if (wolkenLayerAktiv) {
+          clearTimeout(wolkenAbfrageTimeout);
+          wolkenAbfrageTimeout = setTimeout(aktualisiereWolkenLayer, 800);
+        }
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Live-Wind-/Wolken-Layer auf der Kartenübersicht: zwei unabhängig
+    // togglebare Layer, unabhängig von den gespeicherten Fang-Markern.
+    // ---------------------------------------------------------
+    let windLayerAktiv = false;
+    let wolkenLayerAktiv = false;
+    let satellitAktiv = false;
+    let windLayerGruppe = null;
+    let wolkenLayerGruppe = null;
+    let basisKartenLayer = null;
+    let satellitKartenLayer = null;
+    let windAbfrageTimeout = null;
+    let wolkenAbfrageTimeout = null;
+
+    // Wechselt den Kartenhintergrund zwischen der normalen Carto-Karte und einem
+    // Satellitenbild (Esri World Imagery) - beide ohne API-Key nutzbar. Esri liefert
+    // reine Luftbilder ohne Beschriftungen (Straßen-/Ortsnamen), das ist für einen
+    // schnellen Blick auf Gewässer/Ufer aber ausreichend.
+    function schalteSatellitLayer() {
+      satellitAktiv = !satellitAktiv;
+      document.getElementById("toggle-satellit-layer").classList.toggle("aktiv", satellitAktiv);
+
+      if (satellitAktiv) {
+        if (!satellitKartenLayer) {
+          satellitKartenLayer = L.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+            { maxZoom: 20, attribution: "Tiles &copy; Esri" }
+          );
+        }
+        uebersichtsKarte.removeLayer(basisKartenLayer);
+        satellitKartenLayer.addTo(uebersichtsKarte);
+      } else {
+        uebersichtsKarte.removeLayer(satellitKartenLayer);
+        basisKartenLayer.addTo(uebersichtsKarte);
+      }
+    }
+
+    // Zeigt kurz einen Fehlerhinweis über den Toggles an (gleiches Muster wie
+    // der Wetter-Fehlerhinweis im Formular), verschwindet nach 3 Sekunden von selbst.
+    function zeigeKartenWetterHinweis(text) {
+      const hinweisElement = document.getElementById("karten-wetter-hinweis");
+      hinweisElement.textContent = text;
+      hinweisElement.style.display = "inline";
+      setTimeout(() => { hinweisElement.style.display = "none"; }, 3000);
+    }
+
+    function schalteWindLayer() {
+      windLayerAktiv = !windLayerAktiv;
+      document.getElementById("toggle-wind-layer").classList.toggle("aktiv", windLayerAktiv);
+
+      if (!windLayerGruppe) {
+        windLayerGruppe = L.layerGroup();
+      }
+
+      if (windLayerAktiv) {
+        windLayerGruppe.addTo(uebersichtsKarte);
+        aktualisiereWindLayer();
+      } else {
+        uebersichtsKarte.removeLayer(windLayerGruppe);
+      }
+    }
+
+    // Legt ein 4x4-Raster über die aktuell sichtbaren Kartengrenzen und fragt
+    // für alle 16 Punkte in EINEM Open-Meteo-Aufruf die aktuellen Windwerte ab
+    // (Open-Meteo akzeptiert mehrere Koordinaten als kommagetrennte Listen und
+    // liefert dafür ein Array von Ergebnissen zurück - kein API-Key nötig).
+    async function aktualisiereWindLayer() {
+      if (!windLayerAktiv) {
+        return;
+      }
+      const grenzen = uebersichtsKarte.getBounds();
+      const rasterPunkte = baueWindRaster(grenzen);
+
+      const latListe = rasterPunkte.map(punkt => punkt.lat.toFixed(4)).join(",");
+      const lngListe = rasterPunkte.map(punkt => punkt.lng.toFixed(4)).join(",");
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latListe}&longitude=${lngListe}&current=wind_speed_10m,wind_direction_10m`;
+
+      try {
+        const antwort = await fetch(url);
+        const daten = await antwort.json();
+        // Bei mehreren Koordinaten liefert Open-Meteo ein Array, ein Eintrag pro Punkt
+        const ergebnisse = Array.isArray(daten) ? daten : [daten];
+
+        windLayerGruppe.clearLayers();
+        ergebnisse.forEach((ergebnis, index) => {
+          const punkt = rasterPunkte[index];
+          const richtung = ergebnis.current && ergebnis.current.wind_direction_10m;
+          if (!punkt || richtung == null) {
+            return;
+          }
+          const marker = L.marker([punkt.lat, punkt.lng], { icon: baueWindMarkerIcon(richtung), interactive: false });
+          windLayerGruppe.addLayer(marker);
+        });
+      } catch (fehler) {
+        zeigeKartenWetterHinweis("Wind konnte nicht geladen werden.");
+      }
+    }
+
+    // Baut ein 4x4-Punkte-Raster, gleichmäßig verteilt über die übergebenen Kartengrenzen
+    function baueWindRaster(grenzen) {
+      const rasterGroesse = 4;
+      const punkte = [];
+      for (let zeile = 0; zeile < rasterGroesse; zeile++) {
+        for (let spalte = 0; spalte < rasterGroesse; spalte++) {
+          const latAnteil = (zeile + 0.5) / rasterGroesse;
+          const lngAnteil = (spalte + 0.5) / rasterGroesse;
+          punkte.push({
+            lat: grenzen.getSouth() + (grenzen.getNorth() - grenzen.getSouth()) * latAnteil,
+            lng: grenzen.getWest() + (grenzen.getEast() - grenzen.getWest()) * lngAnteil
+          });
+        }
+      }
+      return punkte;
+    }
+
+    // Rotiertes Pfeil-Icon für einen Rasterpunkt - gleiches SVG-Muster wie
+    // ICONS.wind, Rotation genau wie im Rotations-Muster von baueWindZeile().
+    function baueWindMarkerIcon(richtungGrad) {
+      return L.divIcon({
+        className: "wind-marker-icon",
+        html: `<span style="display: block; transform: rotate(${richtungGrad}deg);">${ICONS.wind}</span>`,
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+      });
+    }
+
+    function schalteWolkenLayer() {
+      wolkenLayerAktiv = !wolkenLayerAktiv;
+      document.getElementById("toggle-wolken-layer").classList.toggle("aktiv", wolkenLayerAktiv);
+
+      if (!wolkenLayerGruppe) {
+        wolkenLayerGruppe = L.layerGroup();
+      }
+
+      if (wolkenLayerAktiv) {
+        wolkenLayerGruppe.addTo(uebersichtsKarte);
+        aktualisiereWolkenLayer();
+      } else {
+        uebersichtsKarte.removeLayer(wolkenLayerGruppe);
+      }
+    }
+
+    // Legt wie baueWindRaster() ein 4x4-Raster über die sichtbaren Kartengrenzen,
+    // liefert pro Zelle zusätzlich deren Grenzen (für das gezeichnete Rechteck),
+    // nicht nur den Mittelpunkt (für die API-Abfrage).
+    function baueWolkenRaster(grenzen) {
+      const rasterGroesse = 4;
+      const zellen = [];
+      const latSchritt = (grenzen.getNorth() - grenzen.getSouth()) / rasterGroesse;
+      const lngSchritt = (grenzen.getEast() - grenzen.getWest()) / rasterGroesse;
+      for (let zeile = 0; zeile < rasterGroesse; zeile++) {
+        for (let spalte = 0; spalte < rasterGroesse; spalte++) {
+          const suedGrenze = grenzen.getSouth() + zeile * latSchritt;
+          const westGrenze = grenzen.getWest() + spalte * lngSchritt;
+          zellen.push({
+            lat: suedGrenze + latSchritt / 2,
+            lng: westGrenze + lngSchritt / 2,
+            bounds: L.latLngBounds(
+              [suedGrenze, westGrenze],
+              [suedGrenze + latSchritt, westGrenze + lngSchritt]
+            )
+          });
+        }
+      }
+      return zellen;
+    }
+
+    // Zeichnet die aktuelle Wolkendecke als eingefärbte Raster-Fläche über die
+    // Kartenübersicht - ein einziger batched Open-Meteo-Aufruf (current=cloud_cover,
+    // alle 15 Minuten aktuell, kein API-Key nötig) für alle 16 Rasterzellen, je Zelle
+    // ein graues Rechteck mit Deckkraft proportional zur Bewölkung in Prozent (Weiß
+    // wäre auf der hellen Carto-Karte praktisch unsichtbar gewesen, per Browser-Test
+    // festgestellt).
+    // Vorher wurde hierfür RainViewer (dessen Satelliten-Infrarotbild seit Wochen
+    // dauerhaft leer ist) bzw. OpenWeatherMap (erfordert einen selbst zu besorgenden
+    // API-Key) genutzt.
+    async function aktualisiereWolkenLayer() {
+      if (!wolkenLayerAktiv) {
+        return;
+      }
+      const grenzen = uebersichtsKarte.getBounds();
+      const rasterZellen = baueWolkenRaster(grenzen);
+
+      const latListe = rasterZellen.map(zelle => zelle.lat.toFixed(4)).join(",");
+      const lngListe = rasterZellen.map(zelle => zelle.lng.toFixed(4)).join(",");
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${latListe}&longitude=${lngListe}&current=cloud_cover`;
+
+      try {
+        const antwort = await fetch(url);
+        const daten = await antwort.json();
+        const ergebnisse = Array.isArray(daten) ? daten : [daten];
+
+        wolkenLayerGruppe.clearLayers();
+        ergebnisse.forEach((ergebnis, index) => {
+          const zelle = rasterZellen[index];
+          const bedeckung = ergebnis.current && ergebnis.current.cloud_cover;
+          if (!zelle || bedeckung == null) {
+            return;
+          }
+          const rechteck = L.rectangle(zelle.bounds, {
+            stroke: false,
+            fill: true,
+            fillColor: "#64748b",
+            fillOpacity: (bedeckung / 100) * 0.5,
+            interactive: false
+          });
+          wolkenLayerGruppe.addLayer(rechteck);
+        });
+      } catch (fehler) {
+        zeigeKartenWetterHinweis("Wolkendecke konnte nicht geladen werden.");
+      }
+    }
+
+    // Zeichnet alle Marker auf der Übersichtskarte neu (z. B. nach dem Speichern
+    // eines neuen Fangs). Tut nichts, solange die Karte noch nie angezeigt wurde.
+    function aktualisiereUebersichtsKarte() {
+      if (!uebersichtsKarte) {
+        return;
+      }
+      uebersichtsMarkerGruppe.clearLayers();
+
+      const faengeMitStandort = faenge.filter(f => f.standortLat != null && f.standortLng != null);
+      faengeMitStandort.forEach(fang => {
+        const laengeText = fang.laenge ? ` · ${fang.laenge} cm` : "";
+        const popupText = `<strong>${fang.fischart}</strong><br>${formatiereDatum(fang.datum)}${laengeText}`;
+        L.marker([fang.standortLat, fang.standortLng]).bindPopup(popupText).addTo(uebersichtsMarkerGruppe);
+      });
+
+      document.getElementById("karten-anzahl-orte").textContent = faengeMitStandort.length;
+
+      zentriereKarteAufAlleMarker();
+    }
+
+    // Zentriert die Kartenübersicht auf alle vorhandenen Marker - läuft
+    // automatisch nach jeder Datenänderung (aktualisiereUebersichtsKarte()),
+    // ist aber auch der Klick-Handler des "Alle zentrieren"-Links im Footer.
+    function zentriereKarteAufAlleMarker() {
+      if (!uebersichtsKarte) {
+        return;
+      }
+      const marker = uebersichtsMarkerGruppe.getLayers();
+      if (marker.length === 0) {
+        return;
+      }
+      const grenzen = L.featureGroup(marker).getBounds();
+      uebersichtsKarte.fitBounds(grenzen.pad(0.2));
+    }
+
+    // ===========================================================
+    // STATISTIK (Kuchendiagramme)
+    // ===========================================================
+    // Feste Farbreihenfolge für die Diagramm-Segmente (unabhängig geprüft auf gute
+    // Unterscheidbarkeit, auch bei Rot-Grün-Sehschwäche). Ab dem 7. Wert werden
+    // die restlichen Kategorien zu "Sonstige" zusammengefasst.
+    // Für die neue helle Blau/Orange-Palette neu abgestimmte, farbenblind-sichere
+    // Diagrammfarben (Okabe-Ito als Referenz): Markenblau und -orange werden
+    // wiederverwendet, dazu drei zusätzliche, gut unterscheidbare Töne (Türkis,
+    // Grün, Magenta) und ein Gelb, da die 5 Basisfarben allein zu ähnlich wären,
+    // um 6 Tortenstücke klar auseinanderzuhalten.
+    const DIAGRAMM_FARBEN = ["#0074E1", "#F79E02", "#0BB8AE", "#1E9E6B", "#C25B9E", "#D6B60A"];
+    const FARBE_SONSTIGE = "#9AA7B0";
+
+    // Zählt, wie oft jeder Wert eines Feldes vorkommt (z. B. wie oft jede
+    // Fischart gefangen wurde), absteigend nach Häufigkeit sortiert.
+    function zaehleNachFeld(liste, feldname) {
+      const zaehler = {};
+      liste.forEach(fang => {
+        const wert = (fang[feldname] || "").trim() || "Unbekannt";
+        zaehler[wert] = (zaehler[wert] || 0) + 1;
+      });
+      return Object.entries(zaehler)
+        .map(([label, anzahl]) => ({ label, anzahl }))
+        .sort((a, b) => b.anzahl - a.anzahl);
+    }
+
+    // Rechnet einen Winkel (in Grad, 0 = oben/12-Uhr, im Uhrzeigersinn) zusammen
+    // mit Mittelpunkt und Radius in einen SVG-Punkt um.
+    function polarZuKartesisch(cx, cy, radius, winkelGrad) {
+      const winkelRad = (winkelGrad * Math.PI) / 180;
+      return {
+        x: cx + radius * Math.sin(winkelRad),
+        y: cy - radius * Math.cos(winkelRad)
+      };
+    }
+
+    // Beschreibt den SVG-Pfad für ein Tortenstück zwischen zwei Winkeln
+    function beschreibeKreisSegment(cx, cy, radius, startWinkelGrad, endWinkelGrad) {
+      const startPunkt = polarZuKartesisch(cx, cy, radius, startWinkelGrad);
+      const endPunkt = polarZuKartesisch(cx, cy, radius, endWinkelGrad);
+      const grossBogen = endWinkelGrad - startWinkelGrad > 180 ? 1 : 0;
+      return `M ${cx} ${cy} L ${startPunkt.x.toFixed(2)} ${startPunkt.y.toFixed(2)} A ${radius} ${radius} 0 ${grossBogen} 1 ${endPunkt.x.toFixed(2)} ${endPunkt.y.toFixed(2)} Z`;
+    }
+
+    // Baut ein komplettes Kuchendiagramm (SVG + Legende mit Prozentangaben)
+    // aus einer Liste von { label, anzahl }.
+    function baueKuchendiagramm(daten) {
+      if (daten.length === 0) {
+        return '<p class="leer-hinweis">Noch keine Daten vorhanden.</p>';
+      }
+
+      // Auf maximal 6 Kategorien begrenzen, den Rest als "Sonstige" zusammenfassen -
+      // sonst wird das Diagramm mit vielen dünnen Segmenten unübersichtlich.
+      let segmente = daten.slice(0, 6);
+      const rest = daten.slice(6);
+      if (rest.length > 0) {
+        const restSumme = rest.reduce((summe, eintrag) => summe + eintrag.anzahl, 0);
+        segmente = [...segmente, { label: "Sonstige", anzahl: restSumme }];
+      }
+
+      const gesamt = segmente.reduce((summe, eintrag) => summe + eintrag.anzahl, 0);
+      const mitte = 90;
+      const radius = 80;
+
+      let pfadeHtml;
+      if (segmente.length === 1) {
+        // Ein einzelnes Tortenstück wäre ein voller Kreis - ein SVG-Bogen kann
+        // das nicht darstellen (Start- und Endpunkt wären identisch), deshalb
+        // in diesem Fall einfach einen Kreis zeichnen.
+        pfadeHtml = `<circle cx="${mitte}" cy="${mitte}" r="${radius}" fill="${DIAGRAMM_FARBEN[0]}"></circle>`;
+      } else {
+        let startWinkel = 0;
+        pfadeHtml = segmente.map((segment, index) => {
+          const farbe = segment.label === "Sonstige" ? FARBE_SONSTIGE : DIAGRAMM_FARBEN[index];
+          const winkelBreite = (segment.anzahl / gesamt) * 360;
+          // Kleine Lücke zwischen den Segmenten (statt eines Rahmens) trennt sie optisch
+          const endWinkel = Math.max(startWinkel, startWinkel + winkelBreite - 1.2);
+          const pfad = beschreibeKreisSegment(mitte, mitte, radius, startWinkel, endWinkel);
+          startWinkel += winkelBreite;
+          return `<path d="${pfad}" fill="${farbe}"></path>`;
+        }).join("");
+      }
+
+      const legendeHtml = segmente.map((segment, index) => {
+        const farbe = segment.label === "Sonstige" ? FARBE_SONSTIGE : DIAGRAMM_FARBEN[index];
+        const prozent = Math.round((segment.anzahl / gesamt) * 100);
+        return `
+          <div class="legende-zeile">
+            <span class="legende-farbe" style="background:${farbe}"></span>
+            <span class="legende-label">${segment.label}</span>
+            <span class="legende-wert">${prozent}% (${segment.anzahl})</span>
+          </div>
+        `;
+      }).join("");
+
+      return `
+        <div class="kuchendiagramm">
+          <svg viewBox="0 0 180 180" class="kuchendiagramm-svg">${pfadeHtml}</svg>
+          <div class="legende">${legendeHtml}</div>
+        </div>
+      `;
+    }
+
+    // ===========================================================
+    // ERWEITERTE STATISTIKEN (angel-relevante Auswertungen)
+    // ===========================================================
+    // Jede baueXyz()-Funktion liefert eine fertige ".statistik-karte" als
+    // HTML-String zurück (oder einen Leer-Hinweis, falls zu wenig Daten
+    // vorhanden sind) - zeigeStatistik() reiht sie einfach aneinander.
+    // Alle Diagramme sind selbstgebaute SVGs (keine Chart-Bibliothek),
+    // nach demselben Muster wie das bestehende Kuchendiagramm: die Form
+    // kommt aus SVG-Elementen, Beschriftungen bleiben normales HTML.
+
+    // Baut eine einzelne Statistik-Karte mit Titel + Inhalt
+    function statistikKarte(titel, inhaltHtml) {
+      return `
+        <div class="statistik-karte">
+          <h3 class="statistik-titel">${titel}</h3>
+          ${inhaltHtml}
+        </div>
+      `;
+    }
+
+    // Einheitlicher Leer-Hinweis für Abschnitte ohne genug Daten
+    function leerHinweisHtml(text) {
+      return `<p class="leer-hinweis">${text || "Noch nicht genug Daten — trag mehr Fänge ein!"}</p>`;
+    }
+
+    // Baut ein horizontales SVG-Balkendiagramm aus { label, anzahl }[] - der
+    // Eintrag mit dem höchsten Wert wird in --farbe-akzent hervorgehoben, alle
+    // anderen in --farbe-primaer. Die Balkenbreite ist relativ zum Maximum
+    // (100% Breite = größter Wert). Genutzt von "Beste Tageszeit" und den
+    // Köder-Listen in "Köder-Erfolgsrate nach Fischart".
+    function baueHorizontalBalken(daten) {
+      const maxAnzahl = Math.max(...daten.map(eintrag => eintrag.anzahl), 1);
+      const zeilenHtml = daten.map(eintrag => {
+        const breite = (eintrag.anzahl / maxAnzahl) * 100;
+        const farbe = eintrag.anzahl === maxAnzahl ? "var(--farbe-akzent)" : "var(--farbe-primaer)";
+        return `
+          <div class="balken-zeile">
+            <span class="balken-label">${eintrag.label}</span>
+            <svg class="balken-svg" viewBox="0 0 100 14" preserveAspectRatio="none">
+              <rect x="0" y="2" width="100" height="10" rx="5" fill="rgba(0, 116, 225, 0.08)"></rect>
+              <rect x="0" y="2" width="${breite.toFixed(1)}" height="10" rx="5" fill="${farbe}"></rect>
+            </svg>
+            <span class="balken-wert">${eintrag.anzahl}</span>
+          </div>
+        `;
+      }).join("");
+      return `<div class="balken-liste">${zeilenHtml}</div>`;
+    }
+
+    // Baut ein vertikales SVG-Säulendiagramm aus { label, anzahl }[] - gleiches
+    // Hervorhebungs-Prinzip wie baueHorizontalBalken(). Genutzt von "Fänge pro
+    // Monat" (immer 12 Spalten, auch für Monate mit 0 Fängen).
+    function baueVertikalesSaeulendiagramm(daten) {
+      const maxAnzahl = Math.max(...daten.map(eintrag => eintrag.anzahl), 1);
+      const spaltenHtml = daten.map(eintrag => {
+        const hoehe = (eintrag.anzahl / maxAnzahl) * 100;
+        const farbe = eintrag.anzahl === maxAnzahl && eintrag.anzahl > 0 ? "var(--farbe-akzent)" : "var(--farbe-primaer)";
+        return `
+          <div class="saeule-spalte">
+            <svg class="saeule-svg" viewBox="0 0 10 100" preserveAspectRatio="none">
+              <rect x="0" y="${(100 - hoehe).toFixed(1)}" width="10" height="${hoehe.toFixed(1)}" rx="1.5" fill="${farbe}"></rect>
+            </svg>
+            <span class="saeule-label">${eintrag.label}</span>
+            <span class="saeule-wert">${eintrag.anzahl}</span>
+          </div>
+        `;
+      }).join("");
+      return `<div class="saeulendiagramm">${spaltenHtml}</div>`;
+    }
+
+    // ---------- 1) Beste Tageszeit ----------
+    const TAGESZEITFENSTER = [
+      { label: "Morgen (5–10 Uhr)", test: stunde => stunde >= 5 && stunde < 10 },
+      { label: "Vormittag/Mittag (10–14 Uhr)", test: stunde => stunde >= 10 && stunde < 14 },
+      { label: "Nachmittag (14–18 Uhr)", test: stunde => stunde >= 14 && stunde < 18 },
+      { label: "Abend/Nacht (18–5 Uhr)", test: stunde => stunde >= 18 || stunde < 5 }
+    ];
+
+    function baueBesteTageszeit() {
+      const faengeMitUhrzeit = faenge.filter(fang => fang.uhrzeit);
+      if (faengeMitUhrzeit.length < 2) {
+        return statistikKarte("Beste Tageszeit", leerHinweisHtml());
+      }
+      const daten = TAGESZEITFENSTER.map(fenster => ({
+        label: fenster.label,
+        anzahl: faengeMitUhrzeit.filter(fang => fenster.test(parseInt(fang.uhrzeit.split(":")[0], 10))).length
+      }));
+      return statistikKarte("Beste Tageszeit", baueHorizontalBalken(daten));
+    }
+
+    // ---------- 2) Beste Mondphase ----------
+    // Fasst die bestehenden 8 Mondphaseneinstufungen (mondphaseFuerDatum(),
+    // siehe MONDPHASEN_LABEL) zu den 4 gewünschten Grobgruppen zusammen.
+    // "bruchteil" ist jeweils ein repräsentativer Wert für das Kachel-Icon
+    // (baueMondIcon() - dieselbe Funktion, die auch die Fang-Karten nutzen).
+    const MONDGRUPPEN = [
+      { label: "Neumond", bruchteil: 0, gehoertZu: labelIndex => labelIndex === 0 },
+      { label: "Zunehmend", bruchteil: 0.25, gehoertZu: labelIndex => labelIndex >= 1 && labelIndex <= 3 },
+      { label: "Vollmond", bruchteil: 0.5, gehoertZu: labelIndex => labelIndex === 4 },
+      { label: "Abnehmend", bruchteil: 0.75, gehoertZu: labelIndex => labelIndex >= 5 && labelIndex <= 7 }
+    ];
+
+    function baueBesteMondphase() {
+      if (faenge.length < 2) {
+        return statistikKarte("Beste Mondphase", leerHinweisHtml());
+      }
+      const zaehler = MONDGRUPPEN.map(gruppe => ({ ...gruppe, anzahl: 0 }));
+      faenge.forEach(fang => {
+        const labelIndex = MONDPHASEN_LABEL.indexOf(mondphaseFuerDatum(fang.datum).label);
+        zaehler.find(gruppe => gruppe.gehoertZu(labelIndex)).anzahl++;
+      });
+
+      const maxAnzahl = Math.max(...zaehler.map(gruppe => gruppe.anzahl));
+      const kachelnHtml = zaehler.map(gruppe => `
+        <div class="mini-kachel${gruppe.anzahl === maxAnzahl && maxAnzahl > 0 ? " beste" : ""}">
+          <div class="mini-kachel-icon">${baueMondIcon(gruppe.bruchteil)}</div>
+          <div class="mini-kachel-label">${gruppe.label}</div>
+          <div class="mini-kachel-wert">${gruppe.anzahl}</div>
+        </div>
+      `).join("");
+
+      return statistikKarte("Beste Mondphase", `<div class="mini-kachel-raster" style="grid-template-columns: repeat(4, 1fr);">${kachelnHtml}</div>`);
+    }
+
+    // ---------- 3) Köder-Erfolgsrate nach Fischart ----------
+    function baueKoederErfolgsrate() {
+      if (faenge.length < 2) {
+        return statistikKarte("Köder-Erfolgsrate nach Fischart", leerHinweisHtml());
+      }
+      const fischartVerteilung = zaehleNachFeld(faenge, "fischart");
+      const detailsHtml = fischartVerteilung.map(eintrag => {
+        const faengeDieserArt = faenge.filter(fang => ((fang.fischart || "").trim() || "Unbekannt") === eintrag.label);
+        const koederVerteilung = zaehleNachFeld(faengeDieserArt, "koeder");
+        return `
+          <details class="koeder-details">
+            <summary>
+              <span>${eintrag.label} <span class="koeder-details-anzahl">(${eintrag.anzahl})</span></span>
+              <svg class="chevron-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </summary>
+            <div class="koeder-details-inhalt">${baueHorizontalBalken(koederVerteilung)}</div>
+          </details>
+        `;
+      }).join("");
+      return statistikKarte("Köder-Erfolgsrate nach Fischart", detailsHtml);
+    }
+
+    // ---------- 4) Luftdruck-Korrelation ----------
+    const LUFTDRUCK_GRUPPEN = [
+      { key: "steigend", label: "Steigender Luftdruck", icon: "luftdruckSteigend" },
+      { key: "stabil", label: "Stabiler Luftdruck", icon: "luftdruckStabil" },
+      { key: "fallend", label: "Fallender Luftdruck", icon: "luftdruckFallend" }
+    ];
+
+    function baueLuftdruckKorrelation() {
+      // Ältere Einträge ohne automatisch ermittelte Wetterdaten haben kein
+      // luftdruckTrend - die zählen hier bewusst nicht mit (siehe Hinweistext).
+      const relevanteFaenge = faenge.filter(fang => fang.luftdruckTrend);
+      if (relevanteFaenge.length === 0) {
+        return statistikKarte("Luftdruck-Korrelation", leerHinweisHtml("Noch keine Fänge mit automatisch ermittelten Wetterdaten vorhanden."));
+      }
+
+      const daten = LUFTDRUCK_GRUPPEN.map(gruppe => {
+        const treffer = relevanteFaenge.filter(fang => fang.luftdruckTrend === gruppe.key);
+        const mitLaenge = treffer.filter(fang => fang.laenge).map(fang => parseFloat(fang.laenge));
+        const avgLaenge = mitLaenge.length > 0 ? mitLaenge.reduce((summe, wert) => summe + wert, 0) / mitLaenge.length : null;
+        return { ...gruppe, anzahl: treffer.length, avgLaenge };
+      });
+      const maxAnzahl = Math.max(...daten.map(gruppe => gruppe.anzahl));
+
+      const kachelnHtml = daten.map(gruppe => `
+        <div class="mini-kachel${gruppe.anzahl === maxAnzahl && maxAnzahl > 0 ? " beste" : ""}">
+          <div class="mini-kachel-icon">${ICONS[gruppe.icon]}</div>
+          <div class="mini-kachel-label">${gruppe.label}</div>
+          <div class="mini-kachel-wert">${gruppe.anzahl}</div>
+          <div class="mini-kachel-unterzeile">${gruppe.avgLaenge != null ? `Ø ${gruppe.avgLaenge.toFixed(1)} cm` : "keine Längen"}</div>
+        </div>
+      `).join("");
+
+      return statistikKarte("Luftdruck-Korrelation", `
+        <div class="mini-kachel-raster" style="grid-template-columns: repeat(3, 1fr);">${kachelnHtml}</div>
+        <p class="statistik-fussnote">Nur Fänge mit automatisch ermittelten Wetterdaten werden berücksichtigt.</p>
+      `);
+    }
+
+    // ---------- 5) Fänge pro Monat (Jahresbalkendiagramm) ----------
+    const MONATSNAMEN_KURZ = ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"];
+    // Welches Jahr das Monats-Diagramm aktuell zeigt - bleibt über mehrere
+    // zeigeStatistik()-Aufrufe hinweg erhalten (Nutzerauswahl im Dropdown).
+    let statistikGewaehltesJahr = null;
+
+    // Wird vom Jahr-Dropdown in "Fänge pro Monat" aufgerufen (siehe onchange
+    // im generierten HTML) - baut die Statistik einfach komplett neu auf,
+    // gleiches Muster wie der Rest der App (aktualisiereAlleAnsichten()).
+    function wechsleStatistikJahr(jahr) {
+      statistikGewaehltesJahr = jahr;
+      zeigeStatistik();
+    }
+
+    function baueFaengeProMonat() {
+      const alleJahre = [...new Set(faenge.map(fang => fang.datum.slice(0, 4)))].sort().reverse();
+      if (!statistikGewaehltesJahr || !alleJahre.includes(statistikGewaehltesJahr)) {
+        statistikGewaehltesJahr = alleJahre[0];
+      }
+
+      const faengeImJahr = faenge.filter(fang => fang.datum.startsWith(statistikGewaehltesJahr));
+      const daten = MONATSNAMEN_KURZ.map((name, index) => {
+        const monatAlsString = String(index + 1).padStart(2, "0");
+        return { label: name, anzahl: faengeImJahr.filter(fang => fang.datum.slice(5, 7) === monatAlsString).length };
+      });
+
+      const dropdownHtml = alleJahre.length > 1
+        ? `<select class="jahr-filter" onchange="wechsleStatistikJahr(this.value)">
+            ${alleJahre.map(jahr => `<option value="${jahr}" ${jahr === statistikGewaehltesJahr ? "selected" : ""}>${jahr}</option>`).join("")}
+          </select>`
+        : "";
+
+      return `
+        <div class="statistik-karte">
+          <div class="statistik-titel-zeile">
+            <h3 class="statistik-titel">Fänge pro Monat</h3>
+            ${dropdownHtml}
+          </div>
+          ${baueVertikalesSaeulendiagramm(daten)}
+        </div>
+      `;
+    }
+
+    // ---------- 6) Angeltage vs. Fangtage ----------
+    function baueAngeltageVsFangtage() {
+      const angeltage = new Set(faenge.map(fang => fang.datum)).size;
+      // In diesem Logbuch entspricht jeder Eintrag einem Fang - "Fangtage" ist
+      // damit rechnerisch dieselbe Menge Tage wie "Angeltage" (Erfolgsquote
+      // dadurch immer 100%). Trotzdem als eigene Kennzahl ausgewiesen, siehe
+      // Fußnote, falls das Logbuch später auch fanglose Ansitze erfasst.
+      const fangtage = angeltage;
+      const erfolgsquote = angeltage > 0 ? Math.round((fangtage / angeltage) * 100) : 0;
+
+      return statistikKarte("Angeltage vs. Fangtage", `
+        <div class="zwei-zahlen-raster">
+          <div class="grosse-zahl">
+            <div class="grosse-zahl-wert">${angeltage}</div>
+            <div class="grosse-zahl-label">Angeltage</div>
+          </div>
+          <div class="grosse-zahl">
+            <div class="grosse-zahl-wert">${fangtage}</div>
+            <div class="grosse-zahl-label">Fangtage</div>
+          </div>
+        </div>
+        <div class="fortschritt-zeile">
+          <div class="fortschritt-leiste"><div class="fortschritt-fuellung" style="width: ${erfolgsquote}%;"></div></div>
+          <span class="fortschritt-wert">${erfolgsquote}%</span>
+        </div>
+        <p class="statistik-fussnote">Da jeder Eintrag hier automatisch ein Fang ist, sind Angeltage und Fangtage aktuell immer identisch (100% Erfolgsquote) - "Fangtage" ist trotzdem separat ausgewiesen, für den Fall, dass das Logbuch später auch fanglose Ansitze erfasst.</p>
+      `);
+    }
+
+    // ---------- 7) Gewässer-Rangliste ----------
+    function baueGewaesserRangliste() {
+      const faengeMitGewaesser = faenge.filter(fang => (fang.gewaesser || "").trim());
+      if (faengeMitGewaesser.length === 0) {
+        return statistikKarte("Gewässer-Rangliste", leerHinweisHtml());
+      }
+
+      const gruppenNachName = {};
+      faengeMitGewaesser.forEach(fang => {
+        const name = fang.gewaesser.trim();
+        if (!gruppenNachName[name]) {
+          gruppenNachName[name] = { name, anzahl: 0, groessterFang: null, laengenSumme: 0, laengenAnzahl: 0 };
+        }
+        const gruppe = gruppenNachName[name];
+        gruppe.anzahl++;
+        if (fang.laenge) {
+          const laenge = parseFloat(fang.laenge);
+          gruppe.laengenSumme += laenge;
+          gruppe.laengenAnzahl++;
+          if (!gruppe.groessterFang || laenge > gruppe.groessterFang.laenge) {
+            gruppe.groessterFang = { laenge, fischart: fang.fischart };
+          }
+        }
+      });
+
+      const rangliste = Object.values(gruppenNachName).sort((a, b) => b.anzahl - a.anzahl);
+      const zeilenHtml = rangliste.map((gewaesser, index) => {
+        const avgLaenge = gewaesser.laengenAnzahl > 0 ? (gewaesser.laengenSumme / gewaesser.laengenAnzahl).toFixed(1) : null;
+        return `
+          <div class="info-zeile">
+            <div class="info-kopf">
+              <span class="rang-platz${index === 0 ? " eins" : ""}">${index + 1}</span>
+              <span class="info-name">${gewaesser.name}</span>
+              <span class="info-hauptwert">${gewaesser.anzahl} Fänge</span>
+            </div>
+            <div class="info-unterzeile">
+              <span>Größter: ${gewaesser.groessterFang ? `${gewaesser.groessterFang.fischart}, ${gewaesser.groessterFang.laenge} cm` : "–"}</span>
+              <span>Ø ${avgLaenge ? `${avgLaenge} cm` : "–"}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      return statistikKarte("Gewässer-Rangliste", `<div class="info-liste">${zeilenHtml}</div>`);
+    }
+
+    // ---------- 8) Streak-Anzeige ----------
+    // Heutiges Datum als lokales (nicht UTC-verschobenes) ISO-Datum - direkt
+    // vergleichbar mit fang.datum (kommt ebenfalls aus einem lokalen
+    // Datums-Eingabefeld).
+    function heutigesDatumIso() {
+      const jetzt = new Date();
+      return `${jetzt.getFullYear()}-${String(jetzt.getMonth() + 1).padStart(2, "0")}-${String(jetzt.getDate()).padStart(2, "0")}`;
+    }
+
+    // Rechnet auf einem ISO-Datum (YYYY-MM-DD) in UTC weiter - vermeidet
+    // Zeitzonen-/Sommerzeit-Verschiebungen, die bei reiner Tage-Arithmetik
+    // über new Date(iso).toISOString() sonst zu einem Off-by-one führen könnten.
+    function isoDatumPlusTage(isoDatum, deltaTage) {
+      const [jahr, monat, tag] = isoDatum.split("-").map(Number);
+      return new Date(Date.UTC(jahr, monat - 1, tag + deltaTage)).toISOString().slice(0, 10);
+    }
+
+    // Längste und aktuelle Streak aufeinanderfolgender Angeltage. Die aktuelle
+    // Streak zählt nur, wenn der letzte erfasste Angeltag heute oder gestern
+    // ist - sonst ist die Serie durch die verstrichene Zeit selbst abgerissen,
+    // auch ohne einen expliziten fangfreien Tag im Logbuch.
+    function berechneStreaks(alleFaenge) {
+      const datumsListe = [...new Set(alleFaenge.map(fang => fang.datum))].sort();
+      if (datumsListe.length === 0) {
+        return { laengste: 0, aktuelle: 0 };
+      }
+
+      let laengste = 1;
+      let laufend = 1;
+      for (let i = 1; i < datumsListe.length; i++) {
+        laufend = isoDatumPlusTage(datumsListe[i - 1], 1) === datumsListe[i] ? laufend + 1 : 1;
+        laengste = Math.max(laengste, laufend);
+      }
+
+      const letztesDatum = datumsListe[datumsListe.length - 1];
+      const heute = heutigesDatumIso();
+      const gestern = isoDatumPlusTage(heute, -1);
+      let aktuelle = 0;
+      if (letztesDatum === heute || letztesDatum === gestern) {
+        aktuelle = 1;
+        for (let i = datumsListe.length - 1; i > 0; i--) {
+          if (isoDatumPlusTage(datumsListe[i - 1], 1) === datumsListe[i]) {
+            aktuelle++;
+          } else {
+            break;
+          }
+        }
+      }
+      return { laengste, aktuelle };
+    }
+
+    function baueStreakAnzeige() {
+      const { laengste, aktuelle } = berechneStreaks(faenge);
+      return statistikKarte("Streak", `
+        <div class="zwei-zahlen-raster">
+          <div class="grosse-zahl">
+            <div class="mini-kachel-icon" style="color: var(--farbe-akzent);">${ICONS.flamme}</div>
+            <div class="grosse-zahl-wert">${aktuelle}</div>
+            <div class="grosse-zahl-label">Aktuelle Streak (Tage)</div>
+          </div>
+          <div class="grosse-zahl">
+            <div class="mini-kachel-icon">${ICONS.pokal}</div>
+            <div class="grosse-zahl-wert">${laengste}</div>
+            <div class="grosse-zahl-label">Längste Streak (Tage)</div>
+          </div>
+        </div>
+      `);
+    }
+
+    // ---------- 9) Gesamtlänge aller Fänge ----------
+    const REFERENZLAENGE_HECHT_CM = 100; // ausgewachsener Hecht, als anschaulicher Vergleichswert
+
+    function baueGesamtlaenge() {
+      const faengeMitLaenge = faenge.filter(fang => fang.laenge);
+      if (faengeMitLaenge.length === 0) {
+        return statistikKarte("Gesamtlänge aller Fänge", leerHinweisHtml());
+      }
+      const summeCm = faengeMitLaenge.reduce((summe, fang) => summe + parseFloat(fang.laenge), 0);
+      const anzeigeWert = summeCm >= 100
+        ? `${(summeCm / 100).toFixed(1)} m`
+        : `${summeCm % 1 === 0 ? summeCm : summeCm.toFixed(1)} cm`;
+      const hechtVergleich = (summeCm / REFERENZLAENGE_HECHT_CM).toFixed(1);
+
+      return statistikKarte("Gesamtlänge aller Fänge", `
+        <div class="mini-kachel-icon" style="margin: 0 0 6px;">${ICONS.lineal}</div>
+        <div class="grosse-zahl-wert" style="font-size: 28px;">${anzeigeWert}</div>
+        <p class="statistik-fussnote">Das entspricht etwa dem ${hechtVergleich}-Fachen der Länge eines ausgewachsenen Hechts (~${REFERENZLAENGE_HECHT_CM} cm).</p>
+      `);
+    }
+
+    // ---------- 10) Frühester und spätester Fang ----------
+    function baueFruehesterSpaetesterFang() {
+      const faengeMitUhrzeit = faenge.filter(fang => fang.uhrzeit);
+      if (faengeMitUhrzeit.length === 0) {
+        return statistikKarte("Frühester und spätester Fang", leerHinweisHtml());
+      }
+      const sortiertNachUhrzeit = [...faengeMitUhrzeit].sort((a, b) => a.uhrzeit.localeCompare(b.uhrzeit));
+      const fruehester = sortiertNachUhrzeit[0];
+      const spaetester = sortiertNachUhrzeit[sortiertNachUhrzeit.length - 1];
+
+      const kachelHtml = (fang, label) => `
+        <div class="mini-kachel">
+          <div class="mini-kachel-icon">${ICONS.uhr}</div>
+          <div class="mini-kachel-label">${label}</div>
+          <div class="mini-kachel-wert">${fang.uhrzeit}</div>
+          <div class="mini-kachel-unterzeile">${fang.fischart} · ${formatiereDatum(fang.datum)}</div>
+        </div>
+      `;
+
+      return statistikKarte("Frühester und spätester Fang", `
+        <div class="mini-kachel-raster" style="grid-template-columns: repeat(2, 1fr);">
+          ${kachelHtml(fruehester, "Frühester Fang")}
+          ${kachelHtml(spaetester, "Spätester Fang")}
+        </div>
+      `);
+    }
+
+    // ---------- 11) Wetter-Verteilung ----------
+    // Bewusst nur bei mindestens 3 verschiedenen (echten) Wetterbedingungen -
+    // "Unbekannt" (leeres Feld) zählt dabei nicht als eigene Bedingung mit.
+    function baueWetterVerteilung() {
+      const wetterVerteilung = zaehleNachFeld(faenge, "wetter").filter(eintrag => eintrag.label !== "Unbekannt");
+      if (wetterVerteilung.length < 3) {
+        return "";
+      }
+      return statistikKarte("Fänge nach Wetterlage", baueKuchendiagramm(wetterVerteilung));
+    }
+
+    // ---------- 12) Durchschnittliche Länge pro Fischart ----------
+    function baueFischartLaengenTabelle() {
+      const fischartVerteilung = zaehleNachFeld(faenge, "fischart");
+      const zeilenHtml = fischartVerteilung.map(eintrag => {
+        const faengeDieserArt = faenge.filter(fang => ((fang.fischart || "").trim() || "Unbekannt") === eintrag.label);
+        const laengenDieserArt = faengeDieserArt.filter(fang => fang.laenge).map(fang => parseFloat(fang.laenge));
+        const avgLaenge = laengenDieserArt.length > 0
+          ? (laengenDieserArt.reduce((summe, wert) => summe + wert, 0) / laengenDieserArt.length).toFixed(1)
+          : null;
+        const rekord = laengenDieserArt.length > 0 ? Math.max(...laengenDieserArt) : null;
+        return `
+          <div class="info-zeile">
+            <div class="info-kopf">
+              <span class="info-name">${eintrag.label}</span>
+              <span class="info-hauptwert">${avgLaenge ? `Ø ${avgLaenge} cm` : "–"}</span>
+            </div>
+            <div class="info-unterzeile">
+              <span>${laengenDieserArt.length} von ${eintrag.anzahl} Fängen mit Längenangabe</span>
+              <span>Rekord: ${rekord != null ? `${rekord} cm` : "–"}</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+      return statistikKarte("Durchschnittliche Länge pro Fischart", `<div class="info-liste">${zeilenHtml}</div>`);
+    }
+
+    // Baut die komplette Statistik-Ansicht: die beiden bestehenden
+    // Kuchendiagramme plus alle erweiterten Auswertungen, jeweils als eigene
+    // Karte (.statistik-karte).
+    function zeigeStatistik() {
+      const inhaltElement = document.getElementById("statistik-inhalt");
+
+      if (faenge.length === 0) {
+        inhaltElement.innerHTML = '<p class="leer-hinweis">Noch keine Fänge für eine Statistik vorhanden.</p>';
+        return;
+      }
+
+      const fischartVerteilung = zaehleNachFeld(faenge, "fischart");
+      const gewaesserVerteilung = zaehleNachFeld(faenge, "gewaesser");
+
+      inhaltElement.innerHTML = `
+        ${statistikKarte("Fänge nach Fischart", baueKuchendiagramm(fischartVerteilung))}
+        ${statistikKarte("Fänge nach Gewässer", baueKuchendiagramm(gewaesserVerteilung))}
+        ${baueFischartLaengenTabelle()}
+        ${baueWetterVerteilung()}
+        ${baueBesteTageszeit()}
+        ${baueBesteMondphase()}
+        ${baueKoederErfolgsrate()}
+        ${baueLuftdruckKorrelation()}
+        ${baueFaengeProMonat()}
+        ${baueAngeltageVsFangtage()}
+        ${baueGewaesserRangliste()}
+        ${baueStreakAnzeige()}
+        ${baueGesamtlaenge()}
+        ${baueFruehesterSpaetesterFang()}
+      `;
+    }
+
+    // ===========================================================
+    // UMSCHALTER: Liste / Karte / Statistik
+    // ===========================================================
+    function wechsleAnsicht(name) {
+      // main enthält die vier "normalen" Ansichten in der schmalen Kartenspalte -
+      // bei "wetter" muss es komplett weg, sonst bliebe eine leere Karte stehen.
+      document.getElementById("hauptbereich").style.display = name === "wetter" ? "none" : "block";
+      document.getElementById("ansicht-uebersicht").style.display = name === "uebersicht" ? "block" : "none";
+      document.getElementById("ansicht-liste").style.display = name === "liste" ? "block" : "none";
+      document.getElementById("ansicht-karte").style.display = name === "karte" ? "block" : "none";
+      document.getElementById("ansicht-statistik").style.display = name === "statistik" ? "block" : "none";
+      document.getElementById("ansicht-wetter").style.display = name === "wetter" ? "block" : "none";
+
+      document.querySelectorAll(".bottom-nav-item").forEach(button => {
+        button.classList.toggle("aktiv", button.dataset.ansicht === name);
+      });
+
+      if (name === "uebersicht") {
+        zeigeUebersicht();
+      } else if (name === "karte") {
+        initUebersichtsKarteFallsNoetig();
+        aktualisiereUebersichtsKarte();
+        // Leaflet berechnet die Kartengröße beim Erstellen - war der Bereich da
+        // gerade unsichtbar (display: none), muss die Größe danach neu ermittelt werden.
+        setTimeout(() => uebersichtsKarte.invalidateSize(), 0);
+      } else if (name === "statistik") {
+        zeigeStatistik();
+      } else if (name === "wetter") {
+        zeigeWetterOrteListe();
+        // Beim ersten Öffnen ohne gewählten Ort automatisch den ersten
+        // gespeicherten Standardort laden - kein erneutes Eintippen nötig.
+        if (!wettervorhersageOrt && wetterOrte.length > 0) {
+          waehleWetterOrt(wetterOrte[0].id);
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // Animierte Fische in der Wellenlinie unter dem Header: pro
+    // unterschiedlicher Fischart im Logbuch schwimmt ein kleiner Fisch
+    // endlos durch den Wellenbereich (rein dekorativ). Wird beim ersten
+    // Laden der Seite und danach über aktualisiereAlleAnsichten() nach
+    // jedem Anlegen/Bearbeiten/Löschen eines Fangs neu aufgerufen.
+    // ---------------------------------------------------------
+    const WELLE_MAX_FISCHE = 8; // ab mehr als 8 Fischarten wirkt es überladen
+    const WELLE_HOEHE_PX = 48; // muss zur CSS-Höhe von .wellenlinie passen
+    const WELLE_FISCH_GROESSE_PX = 24;
+
+    // Erzeugt aus einem Text eine stabile Zahl zwischen 0 und 1 - kein
+    // echter Zufall, aber derselbe Name liefert immer denselben Wert. So
+    // behält jede Fischart bei jeder Aktualisierung "ihre" Spur/Tempo/
+    // Verzögerung, statt bei jedem neuen Fang wild durcheinanderzuspringen.
+    // "streuung" verschiebt den Hash je Verwendungszweck, damit Spur, Tempo
+    // und Verzögerung für dieselbe Fischart nicht alle drei gleich ausfallen.
+    function textZuStabilerZahl(text, streuung) {
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        hash = (hash * 31 + text.charCodeAt(i) + streuung * 17) % 100000;
+      }
+      return (Math.abs(hash) % 1000) / 1000; // 0 bis 1
+    }
+
+    function aktualisiereWellenFische() {
+      const behaelter = document.getElementById("header-wellenlinie");
+      if (!behaelter) return;
+
+      // Einzigartige Fischarten sammeln (Groß-/Kleinschreibung ignorieren,
+      // aber die zuerst verwendete Schreibweise als Anzeigetext behalten -
+      // gleiches Prinzip wie bei den Statistik-Auswertungen weiter unten).
+      const gesehen = new Map();
+      faenge.forEach(fang => {
+        const roh = (fang.fischart || "").trim();
+        if (!roh) return;
+        const schluessel = roh.toLowerCase();
+        if (!gesehen.has(schluessel)) {
+          gesehen.set(schluessel, roh);
+        }
+      });
+      const fischarten = Array.from(gesehen.values()).slice(0, WELLE_MAX_FISCHE);
+
+      // 0 Fischarten = keine Fische, nur die Welle bleibt sichtbar.
+      behaelter.innerHTML = fischarten.map((name, index) => {
+        const spur = textZuStabilerZahl(name, 1);
+        const tempo = textZuStabilerZahl(name, 2);
+        const versatz = textZuStabilerZahl(name, 3);
+        const wippTempo = textZuStabilerZahl(name, 4);
+        const wippVersatz = textZuStabilerZahl(name, 5);
+
+        const oben = Math.round(4 + spur * (WELLE_HOEHE_PX - WELLE_FISCH_GROESSE_PX - 8));
+        const dauerSekunden = 14 + tempo * 10; // 14-24s, pro Fisch leicht anders
+        // Negative Verzögerung lässt jeden Fisch sofort mittendrin in seiner
+        // Bahn starten, statt dass beim Laden alle am Rand aufgereiht stehen.
+        const verzoegerungSekunden = -(versatz * dauerSekunden);
+        const wippDauerSekunden = 1.8 + wippTempo * 1.4; // 1.8-3.2s, unabhängig vom Quertempo
+        const wippVerzoegerungSekunden = -(wippVersatz * wippDauerSekunden);
+
+        // Fische wechseln sich ab: gerade Index nach links (Grundausrichtung
+        // des Icons), ungerade Index nach rechts (gespiegelt, siehe CSS).
+        const nachRechts = index % 2 === 1;
+        const querName = nachRechts ? "wellen-fisch-nach-rechts" : "wellen-fisch-nach-links";
+        const spiegelKlasse = nachRechts ? "wellen-fisch--gespiegelt" : "";
+
+        // Zwei parallele Animationen in einer "animation"-Kurzschreibweise:
+        // seitwärts (quer durch den Wellenbereich) + Wippen (Auf-und-Ab,
+        // damit es wirkt, als würden die Fische mit der Welle mitschwimmen).
+        const animation = `${querName} ${dauerSekunden.toFixed(1)}s linear ${verzoegerungSekunden.toFixed(1)}s infinite, `
+          + `wellen-fisch-wippen ${wippDauerSekunden.toFixed(1)}s ease-in-out ${wippVerzoegerungSekunden.toFixed(1)}s infinite`;
+
+        return `<div class="wellen-fisch ${spiegelKlasse}" style="top:${oben}px; animation:${animation};">${ICONS.fisch}</div>`;
+      }).join("");
+    }
+
+    // Aktualisiert alle vier Ansichten auf einmal (nach Speichern/Löschen) -
+    // die Karte und die Statistik nur, falls sie überhaupt schon einmal
+    // angezeigt wurden bzw. gerade sichtbar sind.
+    function aktualisiereAlleAnsichten() {
+      zeigeUebersicht();
+      zeigeFaenge();
+      aktualisiereUebersichtsKarte();
+      aktualisiereWellenFische();
+      if (document.getElementById("ansicht-statistik").style.display !== "none") {
+        zeigeStatistik();
+      }
+    }
+
+    // ---------------------------------------------------------
+    // Formular abschicken: neuen Fang übernehmen
+    // "async" erlaubt es, im Inneren mit "await" auf das Einlesen
+    // des Fotos zu warten, bevor der Eintrag gespeichert wird.
+    // ---------------------------------------------------------
+    document.getElementById("fang-formular").addEventListener("submit", async function (event) {
+      event.preventDefault(); // verhindert, dass die Seite neu lädt
+
+      // Wurde eine neue Datei ausgewählt? Wenn ja, in Base64 umwandeln.
+      // Wurde stattdessen über den "×"-Button ein vorhandenes Foto explizit
+      // entfernt (fotoWurdeEntfernt), bleibt es bei null.
+      // Sonst, wenn gerade ein Eintrag bearbeitet wird: das bisherige Foto behalten.
+      // Sonst (neuer Eintrag ohne Foto): null.
+      const fotoEingabe = document.getElementById("foto");
+      const ausgewaehlteDatei = fotoEingabe.files[0];
+      let fotoAlsBase64 = null;
+      if (ausgewaehlteDatei) {
+        fotoAlsBase64 = await leseBildAlsBase64(ausgewaehlteDatei);
+      } else if (bearbeitungsId && !fotoWurdeEntfernt) {
+        const bisherigerFang = faenge.find(f => f.id === bearbeitungsId);
+        fotoAlsBase64 = bisherigerFang ? bisherigerFang.foto : null;
+      }
+
+      // Alle Formular-Werte einsammeln (ohne id - die wird gleich je nach
+      // Neu-Anlegen oder Bearbeiten separat gesetzt)
+      const fangDaten = {
+        datum: document.getElementById("datum").value,
+        uhrzeit: document.getElementById("uhrzeit").value,
+        gewaesser: document.getElementById("gewaesser").value.trim(),
+        fischart: document.getElementById("fischart").value.trim(),
+        laenge: document.getElementById("laenge").value,
+        koeder: document.getElementById("koeder").value.trim(),
+        methode: document.getElementById("methode").value.trim(),
+        wetter: document.getElementById("wetter").value.trim(),
+        besonderheiten: document.getElementById("besonderheiten").value.trim(),
+        notizen: document.getElementById("notizen").value.trim(),
+        standortLat: ausgewaehlterStandort ? ausgewaehlterStandort.lat : null,
+        standortLng: ausgewaehlterStandort ? ausgewaehlterStandort.lng : null,
+        standortName: ausgewaehlterStandort ? ausgewaehlterStandort.name : null,
+        foto: fotoAlsBase64,
+        // Automatisch ermittelte Zusatzwerte (nicht editierbar) - falls keine
+        // vorhanden sind, bleiben sie auf den Standard-Leerwerten aus ergaenzeFehlendeFelder().
+        windGeschwindigkeit: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.windGeschwindigkeit : null,
+        windRichtung: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.windRichtung : null,
+        bewoelkung: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.bewoelkung : null,
+        luftdruck: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.luftdruck : null,
+        luftdruckTrend: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.luftdruckTrend : "",
+        niederschlag: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.niederschlag : null,
+        niederschlagswahrscheinlichkeit: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.niederschlagswahrscheinlichkeit : null,
+        uvIndex: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.uvIndex : null,
+        sonnenaufgang: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.sonnenaufgang : "",
+        sonnenuntergang: automatischeWetterZusatzwerte ? automatischeWetterZusatzwerte.sonnenuntergang : ""
+      };
+
+      if (bearbeitungsId) {
+        // Bearbeiten-Modus: bestehenden Eintrag mit gleicher ID ersetzen,
+        // damit KEIN doppelter neuer Eintrag entsteht.
+        faenge = faenge.map(fang =>
+          fang.id === bearbeitungsId ? { id: bearbeitungsId, ...fangDaten } : fang
+        );
+      } else {
+        // Normalfall: neuen Eintrag mit neuer, eindeutiger ID anlegen
+        faenge.push({ id: Date.now().toString(), ...fangDaten });
+      }
+
+      speichereFaenge(faenge);
+      aktualisiereAlleAnsichten();
+
+      // Formular zurücksetzen, Dialog schließen und zurück in den "neuer Eintrag"-Modus wechseln
+      bearbeitungAbbrechen();
+    });
+
+    // ===========================================================
+    // WETTERVORHERSAGE (eigenständiger Tab, kein Bezug zu einem Fang)
+    // ===========================================================
+    // Merkt sich den zuletzt gewählten Ort, damit beim erneuten Öffnen des Tabs
+    // (ohne neue Suche) die letzte Vorhersage einfach stehen bleibt.
+    let wettervorhersageOrt = null;
+
+    const WOCHENTAGE_KURZ = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+    const KOMPASS_RICHTUNGEN = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+
+    // Wandelt eine Windrichtung in Grad in ein 8-Punkte-Kompasslabel um
+    function gradZuKompass(grad) {
+      const index = Math.round(grad / 45) % 8;
+      return KOMPASS_RICHTUNGEN[index];
+    }
+
+    // ---------------------------------------------------------
+    // Gespeicherte Standardorte: mehrere Orte merken, damit man die Vorhersage
+    // nicht jedes Mal neu eintippen muss. Gleiches localStorage-Muster wie bei
+    // den Fängen selbst (ladeFaenge()/speichereFaenge()).
+    // ---------------------------------------------------------
+    const WETTER_ORTE_SCHLUESSEL = "fangLogbuchWetterOrte";
+
+    function ladeWetterOrte() {
+      const gespeichert = localStorage.getItem(WETTER_ORTE_SCHLUESSEL);
+      return gespeichert ? JSON.parse(gespeichert) : [];
+    }
+
+    function speichereWetterOrteListe() {
+      localStorage.setItem(WETTER_ORTE_SCHLUESSEL, JSON.stringify(wetterOrte));
+    }
+
+    let wetterOrte = ladeWetterOrte();
+
+    // Merkt sich den aktuell gewählten Ort dauerhaft als Standardort (falls
+    // noch nicht gespeichert). Der volle Nominatim-Name wäre als Chip zu lang -
+    // deshalb nur den ersten Teil vor dem ersten Komma als Kurzname übernehmen.
+    function speichereAktuellenOrtAlsStandard() {
+      if (!wettervorhersageOrt) {
+        return;
+      }
+      const bereitsGespeichert = wetterOrte.some(
+        ort => ort.lat === wettervorhersageOrt.lat && ort.lng === wettervorhersageOrt.lng
+      );
+      if (bereitsGespeichert) {
+        return;
+      }
+      wetterOrte.push({
+        id: Date.now().toString(),
+        name: wettervorhersageOrt.name.split(",")[0].trim(),
+        lat: wettervorhersageOrt.lat,
+        lng: wettervorhersageOrt.lng
+      });
+      speichereWetterOrteListe();
+      zeigeWetterOrteListe();
+      aktualisiereWetterOrtHinweis();
+    }
+
+    function entferneWetterOrt(id) {
+      wetterOrte = wetterOrte.filter(ort => ort.id !== id);
+      speichereWetterOrteListe();
+      zeigeWetterOrteListe();
+      aktualisiereWetterOrtHinweis();
+    }
+
+    // Wählt einen gespeicherten Standardort aus und lädt sofort die passende
+    // Vorhersage, ganz ohne erneute Ortssuche.
+    function waehleWetterOrt(id) {
+      const ort = wetterOrte.find(o => o.id === id);
+      if (!ort) {
+        return;
+      }
+      wettervorhersageOrt = { lat: ort.lat, lng: ort.lng, name: ort.name };
+      document.getElementById("wettervorhersage-suche").value = "";
+      aktualisiereWetterOrtHinweis();
+      zeigeWetterOrteListe();
+      ladeWettervorhersage();
+    }
+
+    // Baut die Chip-Liste der gespeicherten Standardorte auf (inkl. Entfernen-Icon)
+    function zeigeWetterOrteListe() {
+      const container = document.getElementById("wetter-orte-liste");
+      container.innerHTML = wetterOrte.map(ort => {
+        const istAktiv = wettervorhersageOrt && wettervorhersageOrt.lat === ort.lat && wettervorhersageOrt.lng === ort.lng;
+        return `
+          <span class="wetter-ort-chip${istAktiv ? " aktiv" : ""}" onclick="waehleWetterOrt('${ort.id}')">
+            <span class="hinweis-icon">${ICONS.standort}</span> ${ort.name}
+            <span class="wetter-ort-entfernen" onclick="event.stopPropagation(); entferneWetterOrt('${ort.id}')" aria-label="Standardort entfernen">✕</span>
+          </span>
+        `;
+      }).join("");
+    }
+
+    // Aktualisiert den Ort-Hinweistext und blendet den "Speichern"-Button nur
+    // ein, wenn der aktuelle Ort noch nicht als Standardort gespeichert ist.
+    function aktualisiereWetterOrtHinweis() {
+      const hinweisElement = document.getElementById("wettervorhersage-ort-hinweis");
+      const speichernButton = document.getElementById("wetter-ort-speichern-btn");
+
+      if (!wettervorhersageOrt) {
+        hinweisElement.textContent = "Noch kein Ort gewählt.";
+        speichernButton.style.display = "none";
+        return;
+      }
+
+      hinweisElement.innerHTML = `<span class="hinweis-icon">${ICONS.standort}</span> ${wettervorhersageOrt.name}`;
+      const bereitsGespeichert = wetterOrte.some(
+        ort => ort.lat === wettervorhersageOrt.lat && ort.lng === wettervorhersageOrt.lng
+      );
+      speichernButton.style.display = bereitsGespeichert ? "none" : "inline-flex";
+    }
+
+    // Ortssuche - identisches Vorgehen wie die bestehende Fangort-Suche im
+    // Formular (Nominatim-Geocoding), aber unabhängig davon und ohne Karte.
+    async function sucheWettervorhersageOrt() {
+      const suchtext = document.getElementById("wettervorhersage-suche").value.trim();
+      if (!suchtext) {
+        return;
+      }
+      try {
+        const antwort = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(suchtext)}&limit=1`);
+        const ergebnisse = await antwort.json();
+        if (ergebnisse.length === 0) {
+          alert("Kein Ort gefunden. Bitte anders formulieren.");
+          return;
+        }
+        const treffer = ergebnisse[0];
+        wettervorhersageOrt = { lat: parseFloat(treffer.lat), lng: parseFloat(treffer.lon), name: treffer.display_name };
+        aktualisiereWetterOrtHinweis();
+        zeigeWetterOrteListe();
+        ladeWettervorhersage();
+      } catch (fehler) {
+        alert("Die Ortssuche hat nicht funktioniert. Bitte Internetverbindung prüfen.");
+      }
+    }
+
+    document.getElementById("wettervorhersage-suchen-button").addEventListener("click", sucheWettervorhersageOrt);
+    document.getElementById("wettervorhersage-suche").addEventListener("keydown", function (ereignis) {
+      if (ereignis.key === "Enter") {
+        ereignis.preventDefault();
+        sucheWettervorhersageOrt();
+      }
+    });
+
+    // Holt die 7-Tage-Vorhersage von Open-Meteo für den gewählten Ort und
+    // ergänzt dazu je Tag den Luftdruck um die Mittagszeit aus den stündlichen Werten.
+    async function ladeWettervorhersage() {
+      if (!wettervorhersageOrt) {
+        return;
+      }
+      const tageContainer = document.getElementById("wettervorhersage-tage");
+      tageContainer.innerHTML = '<p class="wettervorhersage-hinweis">Vorhersage wird geladen …</p>';
+      document.getElementById("wettervorhersage-sparkline-block").style.display = "none";
+
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${wettervorhersageOrt.lat}&longitude=${wettervorhersageOrt.lng}`
+        + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,winddirection_10m_dominant,weathercode`
+        + `&hourly=pressure_msl&timezone=auto&forecast_days=7`;
+
+      try {
+        const antwort = await fetch(url);
+        const daten = await antwort.json();
+        if (!daten.daily || !daten.daily.time) {
+          tageContainer.innerHTML = '<p class="wettervorhersage-hinweis">Vorhersage konnte nicht geladen werden.</p>';
+          return;
+        }
+
+        // Für jeden Tag den Luftdruck um 12:00 Uhr aus den stündlichen Werten heraussuchen
+        const mittagsDruckProTag = daten.daily.time.map(datumIso => {
+          const zielIndex = daten.hourly.time.indexOf(`${datumIso}T12:00`);
+          return zielIndex >= 0 ? daten.hourly.pressure_msl[zielIndex] : null;
+        });
+
+        zeigeWettervorhersageTage(daten.daily, mittagsDruckProTag);
+      } catch (fehler) {
+        tageContainer.innerHTML = '<p class="wettervorhersage-hinweis">Vorhersage konnte nicht geladen werden.</p>';
+      }
+    }
+
+    // Baut die 7 Tagesspalten (Icon, Temperatur, Niederschlag, Wind, Luftdruck)
+    function zeigeWettervorhersageTage(daily, druckWerte) {
+      const tageContainer = document.getElementById("wettervorhersage-tage");
+      const heuteIso = new Date().toISOString().slice(0, 10);
+      const maxRegen = Math.max(...daily.precipitation_sum, 1);
+
+      tageContainer.innerHTML = daily.time.map((datumIso, index) => {
+        const [jahr, monat, tag] = datumIso.split("-");
+        const wochentagIndex = new Date(datumIso + "T00:00:00").getDay();
+        const wochentag = WOCHENTAGE_KURZ[wochentagIndex];
+
+        const code = daily.weathercode[index];
+        const wetterIconSvg = svgFuerWettercode(code);
+
+        const hoch = Math.round(daily.temperature_2m_max[index]);
+        const tief = Math.round(daily.temperature_2m_min[index]);
+        const regen = daily.precipitation_sum[index];
+        const wind = Math.round(daily.windspeed_10m_max[index]);
+        const richtung = daily.winddirection_10m_dominant[index];
+        const kompass = gradZuKompass(richtung);
+        const druck = druckWerte[index];
+        const istHeute = datumIso === heuteIso;
+
+        return `
+          <div class="tag-spalte${istHeute ? " heute" : ""}">
+            <div class="tag-name">${wochentag}</div>
+            <div class="tag-datum">${tag}.${monat}</div>
+            <div class="tag-icon">${wetterIconSvg}</div>
+            <div class="tag-temp"><span class="hoch">${hoch}°</span> <span class="tief">${tief}°</span></div>
+            <div class="tag-regen-balken-spur"><div class="tag-regen-balken" style="height:${Math.max(3, (regen / maxRegen) * 28)}px;"></div></div>
+            <div class="tag-regen-mm">${regen.toFixed(1)} mm</div>
+            <div class="tag-wind-pfeil" style="transform: rotate(${richtung}deg);">${ICONS.wind}</div>
+            <div class="tag-wind-kmh">${wind} km/h</div>
+            <div class="tag-wind-kompass">${kompass}</div>
+            <div class="tag-druck">${druck != null ? Math.round(druck) + " hPa" : "–"}</div>
+          </div>
+        `;
+      }).join("");
+
+      zeigeLuftdruckSparkline(druckWerte);
+    }
+
+    // Zeichnet die schmale Luftdruck-Trend-Sparkline unter den Tagesspalten -
+    // ersetzt bewusst eine reine Dekoration (wie Unifishs Wellenhöhen-Chart)
+    // durch den für Angler fachlich wichtigsten Wert.
+    function zeigeLuftdruckSparkline(druckWerte) {
+      const block = document.getElementById("wettervorhersage-sparkline-block");
+      const gueltigeWerte = druckWerte.filter(wert => wert != null);
+      if (gueltigeWerte.length < 2) {
+        block.style.display = "none";
+        return;
+      }
+      block.style.display = "block";
+
+      const min = Math.min(...gueltigeWerte);
+      const max = Math.max(...gueltigeWerte);
+      const breite = 320, hoehe = 46, rand = 6;
+      const punkte = druckWerte.map((wert, index) => {
+        const x = (index / (druckWerte.length - 1)) * breite;
+        const wertOderMitte = wert != null ? wert : (min + max) / 2;
+        const y = hoehe - rand - ((wertOderMitte - min) / (max - min || 1)) * (hoehe - rand * 2);
+        return [x, y];
+      });
+
+      document.getElementById("wettervorhersage-druck-linie").setAttribute("points", punkte.map(p => p.join(",")).join(" "));
+      const letzterPunkt = punkte[punkte.length - 1];
+      document.getElementById("wettervorhersage-druck-punkt").setAttribute("cx", letzterPunkt[0]);
+      document.getElementById("wettervorhersage-druck-punkt").setAttribute("cy", letzterPunkt[1]);
+      const letzterWert = druckWerte[druckWerte.length - 1];
+      document.getElementById("wettervorhersage-druck-heute").textContent = letzterWert != null ? `${Math.round(letzterWert)} hPa` : "";
+    }
+
+    // ---------------------------------------------------------
+    // Beim Öffnen der Seite: heutiges Datum vorausfüllen, Liste vorbereiten und
+    // die neue Dashboard-Übersicht als Startansicht anzeigen. Die Formular-Karte,
+    // die Kartenübersicht und die Statistik werden erst aufgebaut, sobald sie
+    // tatsächlich das erste Mal sichtbar werden.
+    // ---------------------------------------------------------
+    document.getElementById("datum").valueAsDate = new Date();
+    zeigeFaenge();
+    wechsleAnsicht("uebersicht");
+    aktualisiereWellenFische();
+  </script>
+
+</body>
+</html>
