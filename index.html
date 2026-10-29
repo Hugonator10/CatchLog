@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <!-- Wichtig für Handys: Seite wird in echter Handy-Breite dargestellt, kein Zoom-Herauszoomen -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- App-Version für die Update-Erkennung (pruefeAufUpdate()). Muss IMMER
+       identisch mit APP_VERSION im Skript sein und bei jeder Änderung erhöht werden. -->
+  <meta name="app-version" content="2026.10.29-1">
   <title>Catch Log</title>
 
   <!-- Google Fonts: Fraunces (Überschriften), Inter (Fließtext), IBM Plex Mono (Zahlen/Zeiten) -->
@@ -92,6 +95,98 @@
       letter-spacing: 0.2px;
     }
 
+    /* Zahnrad oben rechts im Header ("Daten & Sicherung"). Überschreibt die
+       globalen button-Regeln (volle Breite, Abstand oben), 44px Tippfläche. */
+    .kopf-einstellungen-btn {
+      position: absolute;
+      top: max(14px, env(safe-area-inset-top));
+      right: 8px;
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      padding: 10px;
+      border-radius: 999px;
+      background: transparent;
+      color: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kopf-einstellungen-btn span,
+    .kopf-einstellungen-btn svg {
+      display: block;
+      width: 24px;
+      height: 24px;
+    }
+
+    /* Sync-Status oben links: gleiche Form wie das Zahnrad, dazu ein farbiger
+       Punkt unten rechts an der Wolke (Farbe je nach data-zustand) */
+    .kopf-sync-btn {
+      position: absolute;
+      top: max(14px, env(safe-area-inset-top));
+      left: 8px;
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      padding: 10px;
+      border-radius: 999px;
+      background: transparent;
+      color: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .kopf-sync-btn span,
+    .kopf-sync-btn svg {
+      display: block;
+      width: 24px;
+      height: 24px;
+    }
+
+    .kopf-sync-punkt,
+    .sync-punkt {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #9AA8B5; /* grau = nur lokal / wird gesendet */
+      box-shadow: 0 0 0 2px var(--farbe-primaer);
+    }
+
+    .kopf-sync-punkt {
+      position: absolute;
+      right: 8px;
+      bottom: 9px;
+    }
+
+    [data-zustand="synchronisiert"] .kopf-sync-punkt,
+    .sync-punkt[data-zustand="synchronisiert"] {
+      background: #2FB36B; /* grün */
+    }
+
+    [data-zustand="wartet"] .kopf-sync-punkt,
+    [data-zustand="fehler"] .kopf-sync-punkt,
+    [data-zustand="anmeldung"] .kopf-sync-punkt,
+    .sync-punkt[data-zustand="wartet"],
+    .sync-punkt[data-zustand="fehler"],
+    .sync-punkt[data-zustand="anmeldung"] {
+      background: var(--farbe-akzent); /* orange = Handlungsbedarf/ausstehend */
+    }
+
+    [data-zustand="sendet"] .kopf-sync-punkt {
+      animation: sync-puls 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes sync-puls {
+      from { opacity: 1; }
+      to { opacity: 0.35; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      [data-zustand="sendet"] .kopf-sync-punkt { animation: none; }
+    }
+
     /* ---------- Signatur-Element: dezente Wellenlinie als Trenner ---------- */
     /* Nur noch als dezenter Trenner im Einsatz (z. B. unter dem Header der
        Formular-Seite) - die große Welle steckt jetzt in der Header-Canvas.
@@ -145,7 +240,8 @@
       margin: 22px 0 12px;
     }
 
-    .abschnitt-titel:first-child {
+    .abschnitt-titel:first-child,
+    .sicherung-hinweis + .abschnitt-titel { /* Sicherungs-Hinweis davor (sichtbar oder hidden) */
       margin-top: 0;
     }
 
@@ -385,6 +481,54 @@
       flex-shrink: 0;
     }
 
+    /* ---------- "Neue Version verfügbar"-Karte ---------- */
+    /* Links neben dem FAB (rechts 16px + 60px FAB + 12px Luft frei gelassen),
+       gleiche Unterkante wie der FAB - also FÜNFTE Stelle, die an die
+       Nav-Höhe (64px) gekoppelt ist. */
+    .update-karte {
+      position: fixed;
+      left: 16px;
+      right: calc(16px + 60px + 12px);
+      bottom: calc(64px + max(12px, env(safe-area-inset-bottom)) + 14px);
+      z-index: 22;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 10px;
+      padding: 8px 10px 8px 14px;
+      min-height: 60px;
+      box-sizing: border-box;
+      background: var(--farbe-karte);
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 14px;
+      box-shadow: 0 6px 22px rgba(15, 41, 66, 0.18);
+      font-weight: 600;
+      color: var(--farbe-text);
+    }
+
+    .update-karte[hidden] {
+      display: none;
+    }
+
+    .update-karte-icon {
+      display: flex;
+      width: 20px;
+      height: 20px;
+      color: var(--farbe-primaer);
+    }
+
+    .update-karte-text {
+      flex: 1 1 110px;
+      font-size: 15px;
+    }
+
+    .update-karte .button-klein,
+    .sicherung-hinweis .button-klein {
+      min-height: 44px;
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
     /* ---------- Formular ---------- */
     label,
     .label-artig {
@@ -400,6 +544,8 @@
     input[type="time"],
     input[type="text"],
     input[type="number"],
+    input[type="email"],
+    input[type="password"],
     textarea {
       width: 100%;
       padding: 12px 14px;
@@ -513,6 +659,340 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
+    }
+
+    /* Hinweis unter dem Foto zu den übernommenen Aufnahmedaten (EXIF).
+       [hidden] muss explizit gelten, weil display: flex es sonst überstimmt. */
+    .foto-exif-hinweis {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 10px;
+      margin-top: 12px;
+      padding: 10px 12px;
+      border: 1px solid var(--farbe-karte-border);
+      border-radius: 10px;
+      background-color: var(--farbe-karte);
+      font-size: 14px;
+      color: var(--farbe-text);
+    }
+
+    .foto-exif-hinweis[hidden] {
+      display: none;
+    }
+
+    /* "Nichts gefunden" bleibt bewusst unauffällig */
+    .foto-exif-hinweis.ruhig {
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .foto-exif-hinweis-text {
+      flex: 1 1 180px;
+    }
+
+    .foto-exif-hinweis-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .foto-exif-hinweis-buttons .button-klein {
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
+    /* Zweitrangige Variante ("Behalten"): nur Rahmen statt Füllung */
+    .foto-exif-hinweis-buttons .button-klein.behalten {
+      background-color: transparent;
+      color: var(--farbe-primaer);
+      box-shadow: inset 0 0 0 1.5px var(--farbe-primaer);
+    }
+
+    /* Wegtipp-"×" (überschreibt die globalen button-Regeln wie volle Breite) */
+    .foto-exif-hinweis-schliessen {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      margin: 0 -6px 0 auto;
+      background: none;
+      color: var(--farbe-text-gedaempft);
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    /* ---------- Daten & Sicherung ---------- */
+    /* Seite selbst = .formular-seite (gleiche Animation). Inhalt mit denselben
+       Abständen wie das Formular. */
+    .sicherung-inhalt {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 12px 20px calc(max(16px, env(safe-area-inset-bottom)) + 24px);
+    }
+
+    .sicherung-kopf-platzhalter {
+      width: 44px;
+    }
+
+    .sicherung-text {
+      margin: 8px 0 0;
+      color: var(--farbe-text-gedaempft);
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .sicherung-status {
+      margin: 10px 0 0;
+      font-size: 14px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .sicherung-status:empty {
+      display: none;
+    }
+
+    .sicherung-status.fehler {
+      color: #B3261E;
+    }
+
+    .sicherung-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 48px;
+      margin-top: 16px;
+    }
+
+    .sicherung-btn span,
+    .sicherung-btn svg {
+      display: block;
+      width: 20px;
+      height: 20px;
+    }
+
+    /* Zweitrangige Aktion: nur Rahmen statt Füllung */
+    .sicherung-btn--zweitrangig {
+      background: transparent;
+      color: var(--farbe-primaer);
+      box-shadow: inset 0 0 0 1.5px var(--farbe-primaer);
+    }
+
+    /* Speicher-Balken: --farbe-primaer, ab 80 % Orange (.knapp) */
+    .speicher-balken {
+      margin-top: 12px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--farbe-karte-border);
+      overflow: hidden;
+    }
+
+    .speicher-balken-fuellung {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      background: var(--farbe-primaer);
+      transition: width 300ms ease;
+    }
+
+    .speicher-balken-fuellung.knapp {
+      background: var(--farbe-akzent);
+    }
+
+    /* Konto & Synchronisation: Statuszeile mit Punkt */
+    .sync-status-zeile {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 0 0;
+      font-weight: 600;
+      font-size: 15px;
+    }
+
+    .sync-status-zeile .sync-punkt {
+      box-shadow: none;
+      flex: none;
+    }
+
+    #konto-angemeldet[hidden],
+    #konto-abgemeldet[hidden],
+    #konto-uebernahme-btn[hidden] {
+      display: none;
+    }
+
+    /* ---------- Anmeldeseite + Übernahme-Abfrage (Vollbild, über allem) ---------- */
+    .vollbild-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      background: linear-gradient(180deg, rgba(0, 116, 225, 0.10), var(--farbe-hintergrund) 260px), var(--farbe-hintergrund);
+    }
+
+    .vollbild-overlay[hidden] {
+      display: none;
+    }
+
+    #uebernahme-seite {
+      z-index: 121;
+    }
+
+    .anmelde-inhalt {
+      max-width: 440px;
+      margin: 0 auto;
+      padding: max(36px, calc(env(safe-area-inset-top) + 24px)) 20px calc(max(16px, env(safe-area-inset-bottom)) + 24px);
+    }
+
+    .anmelde-logo {
+      display: flex; /* überstimmt [data-icon] { inline-flex }, sonst greift margin: auto nicht */
+      width: 64px;
+      height: 64px;
+      margin: 0 auto;
+      padding: 14px;
+      border-radius: 20px;
+      background: var(--farbe-primaer);
+      color: #FFFFFF;
+    }
+
+    .anmelde-logo svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .anmelde-titel {
+      margin: 14px 0 6px;
+      text-align: center;
+      font-family: var(--schrift-serif);
+      font-weight: 700;
+      font-size: 26px;
+      color: var(--farbe-primaer);
+    }
+
+    .anmelde-untertitel {
+      margin: 0 0 4px;
+      text-align: center;
+      color: var(--farbe-text-gedaempft);
+      font-size: 15.5px;
+      line-height: 1.45;
+    }
+
+    .anmelde-inhalt input[type="email"],
+    .anmelde-inhalt input[type="password"],
+    .anmelde-inhalt input[type="text"] {
+      min-height: 48px;
+    }
+
+    #anmelde-formular label:first-child {
+      margin-top: 0;
+    }
+
+    .passwort-feld {
+      position: relative;
+    }
+
+    .passwort-feld input {
+      padding-right: 52px;
+    }
+
+    .passwort-zeigen-btn {
+      position: absolute;
+      top: 50%;
+      right: 2px;
+      transform: translateY(-50%);
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      padding: 11px;
+      background: transparent;
+      color: var(--farbe-text-gedaempft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .passwort-zeigen-btn span,
+    .passwort-zeigen-btn svg {
+      display: block;
+      width: 22px;
+      height: 22px;
+    }
+
+    .anmelde-fehler {
+      margin: 14px 0 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: rgba(216, 72, 61, 0.09);
+      color: #B3261E;
+      font-size: 15px;
+    }
+
+    .anmelde-fehler[hidden] {
+      display: none;
+    }
+
+    #anmelde-btn:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    .anmelde-ohne-konto {
+      display: block;
+      width: 100%;
+      min-height: 48px;
+      margin-top: 14px;
+      background: transparent;
+      color: var(--farbe-primaer);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* Erinnerung "Jetzt sichern" oben in der Übersicht */
+    .sicherung-hinweis {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 10px;
+      margin: 4px 0 14px;
+      padding: 10px 6px 10px 14px;
+      border: 1px solid var(--farbe-karte-border);
+      border-left: 4px solid var(--farbe-primaer);
+      border-radius: 12px;
+      background: var(--farbe-karte);
+      font-size: 15px;
+    }
+
+    .sicherung-hinweis[hidden] {
+      display: none;
+    }
+
+    .sicherung-hinweis-icon {
+      display: flex;
+      width: 20px;
+      height: 20px;
+      color: var(--farbe-primaer);
+    }
+
+    .sicherung-hinweis-text {
+      flex: 1 1 160px;
+    }
+
+    .hinweis-schliessen-btn {
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      padding: 12px;
+      background: transparent;
+      color: var(--farbe-text-gedaempft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hinweis-schliessen-btn span,
+    .hinweis-schliessen-btn svg {
+      display: block;
+      width: 20px;
+      height: 20px;
     }
 
     /* großer, gut tippbarer Haupt-Button */
@@ -2354,6 +2834,537 @@
       color: var(--farbe-text-gedaempft);
     }
 
+    /* ---------- Statistik-Umschalter "Fänge" | "Angeltage" ---------- */
+    /* Segment-Schalter: aktive Hälfte in --farbe-primaer (Orange bleibt den
+       echten Highlights vorbehalten). Buttons überschreiben die globalen
+       button-Regeln (volle Breite, margin-top). */
+    .statistik-umschalter {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      margin: 0 0 16px;
+      border-radius: 999px;
+      background: rgba(0, 116, 225, 0.08);
+    }
+
+    .statistik-umschalter button {
+      margin: 0;
+      min-height: 44px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--farbe-primaer);
+      font-size: 15px;
+    }
+
+    .statistik-umschalter button.aktiv {
+      background: var(--farbe-primaer);
+      color: #FFFFFF;
+      box-shadow: 0 1px 4px rgba(15, 41, 66, 0.18);
+    }
+
+    #angeltage-inhalt[hidden],
+    #statistik-inhalt[hidden] {
+      display: none;
+    }
+
+    /* ---------- Angeltage-Auswertung (zeigeAngeltageAuswertung()) ---------- */
+    /* "Angeltag eintragen": Haupt-Aktion der Ansicht, daher als Orange-Pill
+       (gleiches Muster wie die Speichern-Pill der Formular-Seite) */
+    .angeltag-eintragen-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 52px;
+      margin: 0 0 14px;
+      border-radius: 999px;
+      background: var(--farbe-akzent);
+      color: var(--farbe-akzent-text);
+    }
+
+    .angeltag-eintragen-btn span,
+    .angeltag-eintragen-btn svg {
+      display: block;
+      width: 20px;
+      height: 20px;
+    }
+
+    .angeltage-kennzahlen {
+      margin-bottom: 14px;
+    }
+
+    .angeltage-kennzahlen .kennzahl-wert {
+      color: var(--farbe-primaer);
+    }
+
+    /* Fangquote: Ring (SVG) links, Legende (HTML) rechts */
+    .fangquote {
+      display: grid;
+      grid-template-columns: 96px minmax(0, 1fr);
+      gap: 16px;
+      align-items: center;
+    }
+
+    .fangquote-ring {
+      position: relative;
+      width: 96px;
+      height: 96px;
+    }
+
+    .fangquote-ring svg {
+      display: block;
+      width: 96px;
+      height: 96px;
+    }
+
+    .fangquote-ring b {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--schrift-mono);
+      font-size: 21px;
+      font-weight: 600;
+    }
+
+    .fangquote-legende {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 15px;
+    }
+
+    .fangquote-legende li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .fangquote-legende b {
+      font-family: var(--schrift-mono);
+    }
+
+    .fangquote-punkt {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex: none;
+    }
+
+    .angeltage-gedaempft {
+      font-size: 13px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Jahresziel: Kopfzeile mit Stift-Button, Balken in Primärfarbe */
+    .jahresziel-kopf {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .jahresziel-kopf b {
+      font-family: var(--schrift-mono);
+      color: var(--farbe-text);
+    }
+
+    .icon-btn {
+      width: 44px;
+      height: 44px;
+      margin: 0;
+      padding: 11px;
+      flex: none;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--farbe-text-gedaempft);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon-btn span,
+    .icon-btn svg {
+      display: block;
+      width: 20px;
+      height: 20px;
+    }
+
+    .icon-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+
+    .jahresziel-balken {
+      height: 10px;
+      margin: 6px 0 8px;
+      border-radius: 999px;
+      background: var(--farbe-karte-border);
+      overflow: hidden;
+    }
+
+    .jahresziel-balken i {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--farbe-primaer);
+    }
+
+    /* Ziel erreicht = echtes Highlight -> Orange */
+    .jahresziel-balken.erreicht i {
+      background: var(--farbe-akzent);
+    }
+
+    .jahresziel-editor {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+
+    .jahresziel-editor input {
+      flex: 1;
+      min-height: 44px;
+      font-size: 16px;
+    }
+
+    .jahresziel-editor .button-klein {
+      min-height: 44px;
+    }
+
+    /* Serien: 3 Kacheln je Zeile */
+    .serien-raster {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .serie-kachel {
+      background: rgba(0, 116, 225, 0.06);
+      border-radius: 12px;
+      padding: 10px 6px;
+      text-align: center;
+      min-width: 0;
+    }
+
+    .serie-kachel b {
+      display: block;
+      font-family: var(--schrift-mono);
+      font-size: 24px;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .serie-kachel span {
+      display: block;
+      font-size: 12px;
+      line-height: 1.25;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .serie-kachel small {
+      display: block;
+      margin-top: 4px;
+      font-family: var(--schrift-mono);
+      font-size: 11.5px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .serie-kachel.fang b { color: var(--farbe-primaer); }
+    .serie-kachel.ohne b { color: var(--farbe-akzent); }
+
+    /* Kalender: 7 Spalten, markierte Tage sind Buttons */
+    .kalender-kopf {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .kalender-kopf .statistik-titel {
+      margin: 0;
+    }
+
+    /* Kalender-Karte mit weniger Seitenrand, damit die Tageszellen auch auf
+       schmalen Handys (~360-390px) ca. 44px Tippfläche bekommen */
+    .kalender-karte {
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .kalender-karte .kalender-legende {
+      padding: 0 8px;
+    }
+
+    .kalender-raster {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 2px;
+    }
+
+    .kalender-wochentag {
+      text-align: center;
+      font-size: 11.5px;
+      color: var(--farbe-text-gedaempft);
+      padding-bottom: 2px;
+    }
+
+    .kalender-tag {
+      position: relative;
+      height: 44px;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--schrift-mono);
+      font-size: 13.5px;
+      font-weight: 500;
+      color: var(--farbe-text-gedaempft);
+      background: transparent;
+    }
+
+    .kalender-tag.fang {
+      background: var(--farbe-primaer);
+      color: #FFFFFF;
+    }
+
+    .kalender-tag.ohne-fang {
+      box-shadow: inset 0 0 0 2px var(--farbe-akzent);
+      color: var(--farbe-text);
+    }
+
+    .kalender-tag.heute::after {
+      content: "";
+      position: absolute;
+      bottom: 5px;
+      width: 14px;
+      height: 2px;
+      border-radius: 1px;
+      background: currentColor;
+    }
+
+    .kalender-legende {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 14px;
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .kalender-legende span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .kalender-legende i {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+    }
+
+    /* Vergleiche: Fangquote in % als Balken */
+    .quote-untertitel {
+      margin: 14px 0 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .quote-untertitel:first-of-type {
+      margin-top: 0;
+    }
+
+    .quote-zeile {
+      display: grid;
+      grid-template-columns: minmax(0, 118px) minmax(0, 1fr) 44px;
+      gap: 10px;
+      align-items: center;
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .quote-zeile-label {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .quote-zeile-label small {
+      display: block;
+      white-space: normal; /* "1 Angeltag · wenig Daten" darf umbrechen statt abgeschnitten zu werden */
+      font-size: 11.5px;
+      color: var(--farbe-text-gedaempft);
+    }
+
+    .quote-zeile .balken-svg {
+      width: 100%;
+    }
+
+    .quote-zeile-wert {
+      font-family: var(--schrift-mono);
+      text-align: right;
+      font-size: 13.5px;
+    }
+
+    /* Zeilen "Letzte Angeltage" / Fänge in der Detailansicht */
+    .angeltag-zeilen {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .angeltag-zeile {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      width: 100%;
+      min-height: 56px;
+      margin: 0;
+      padding: 8px 14px;
+      border-radius: 12px;
+      background: rgba(0, 116, 225, 0.06);
+      color: var(--farbe-text);
+      text-align: left;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .angeltag-zeile b {
+      display: block;
+      font-weight: 600;
+    }
+
+    .angeltag-zeile small {
+      display: block;
+      margin-top: 2px;
+      font-size: 13px;
+      color: var(--farbe-text-gedaempft);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .angeltag-zeile-wert {
+      font-family: var(--schrift-mono);
+      font-size: 15px;
+      color: var(--farbe-primaer);
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .angeltag-zeile-wert.ohne {
+      color: var(--farbe-text-gedaempft);
+    }
+
+    /* Fangzeile in der Detailansicht: Thumbnail | Text | Länge */
+    .angeltag-zeile.mit-thumb {
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      padding-left: 8px;
+    }
+
+    .angeltag-leer {
+      text-align: center;
+      padding: 8px 6px 4px;
+    }
+
+    .angeltag-leer p {
+      margin: 0 0 6px;
+      color: var(--farbe-text-gedaempft);
+      font-size: 15px;
+    }
+
+    /* ---------- Angeltag-Formular + Detailseite ---------- */
+    /* Formular liegt über der Detailseite (Bearbeiten aus der Detailansicht) */
+    #angeltag-seite {
+      z-index: 101;
+    }
+
+    .angeltag-zeiten {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .angeltag-hinweis {
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-left: 4px solid var(--farbe-primaer);
+      border-radius: 10px;
+      background: rgba(0, 116, 225, 0.07);
+      font-size: 14.5px;
+    }
+
+    .angeltag-hinweis[hidden] {
+      display: none;
+    }
+
+    .angeltag-detail-werte {
+      margin: 8px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 15.5px;
+    }
+
+    .angeltag-detail-werte div {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .angeltag-detail-werte .icon-svg {
+      width: 18px;
+      height: 18px;
+      margin-top: 3px;
+      flex: none;
+      color: var(--farbe-primaer);
+    }
+
+    .angeltag-detail-knoepfe {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .angeltag-detail-knoepfe button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin: 0;
+      min-height: 48px;
+    }
+
+    .angeltag-detail-knoepfe .icon-svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .angeltag-loeschen-btn {
+      background: transparent;
+      color: var(--farbe-loeschen);
+      box-shadow: inset 0 0 0 1.5px var(--farbe-loeschen);
+    }
+
     /* Jahr-Filter-Dropdown im Monats-Balkendiagramm (Statistik) */
     .jahr-filter {
       font-family: var(--schrift-mono);
@@ -2675,6 +3686,18 @@
     <!-- Wellen + Fische werden per JavaScript gezeichnet (siehe zeichneWellenBild()) -->
     <canvas id="wellen-canvas" aria-hidden="true"></canvas>
     <h1>Catch Log</h1>
+    <!-- Sync-Status oben links (aktualisiereSyncAnzeige()): Wolke + farbiger
+         Punkt (grün = synchronisiert, grau = sendet/nur lokal, orange = wartet/
+         Fehler). Text für Screenreader steckt im aria-label. Antippen öffnet
+         "Daten & Sicherung" mit dem Bereich "Konto & Synchronisation". -->
+    <button type="button" class="kopf-sync-btn" id="kopf-sync-btn" onclick="oeffneSicherungSeite()" aria-label="Synchronisation: nur auf diesem Gerät">
+      <span data-icon="wolke" aria-hidden="true"></span>
+      <i class="kopf-sync-punkt" aria-hidden="true"></i>
+    </button>
+    <!-- Zahnrad oben rechts: öffnet "Daten & Sicherung" (oeffneSicherungSeite()) -->
+    <button type="button" class="kopf-einstellungen-btn" onclick="oeffneSicherungSeite()" aria-label="Daten &amp; Sicherung">
+      <span data-icon="zahnrad" aria-hidden="true"></span>
+    </button>
   </header>
 
   <main id="hauptbereich">
@@ -2687,6 +3710,17 @@
     <section>
 
       <div id="ansicht-uebersicht">
+        <!-- Erinnerung an die Sicherung (nie gesichert oder älter als 14 Tage),
+             siehe aktualisiereSicherungsHinweis(). Wegtippen pausiert sie ein paar Tage. -->
+        <div id="sicherung-hinweis" class="sicherung-hinweis" role="status" hidden>
+          <span class="sicherung-hinweis-icon" data-icon="sichern" aria-hidden="true"></span>
+          <span class="sicherung-hinweis-text" id="sicherung-hinweis-text"></span>
+          <button type="button" class="button-klein" onclick="exportiereFaenge()">Jetzt sichern</button>
+          <button type="button" class="hinweis-schliessen-btn" aria-label="Hinweis ausblenden" onclick="blendeSicherungsHinweisAus()">
+            <span data-icon="schliessen" aria-hidden="true"></span>
+          </button>
+        </div>
+
         <h3 class="abschnitt-titel">Übersicht</h3>
         <div class="kennzahlen-raster">
           <div class="kennzahl-karte">
@@ -2743,8 +3777,17 @@
 
       <div id="ansicht-statistik" style="display: none;">
         <h2>Statistik</h2>
+        <!-- Umschalter "Fänge" | "Angeltage" (setzeStatistikModus()) - "Fänge"
+             zeigt die bisherigen Statistiken, "Angeltage" die neue Auswertung -->
+        <div class="statistik-umschalter" role="group" aria-label="Statistik-Ansicht">
+          <button type="button" id="statistik-modus-faenge" class="aktiv" aria-pressed="true" onclick="setzeStatistikModus('faenge')">Fänge</button>
+          <button type="button" id="statistik-modus-angeltage" aria-pressed="false" onclick="setzeStatistikModus('angeltage')">Angeltage</button>
+        </div>
         <div id="statistik-inhalt">
           <!-- wird per JavaScript befüllt -->
+        </div>
+        <div id="angeltage-inhalt" hidden>
+          <!-- wird per JavaScript befüllt (zeigeAngeltageAuswertung()) -->
         </div>
       </div>
 
@@ -2829,6 +3872,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
 
+  <!-- ---------- Hinweis "Neue Version verfügbar" (pruefeAufUpdate()) ----------
+       Sitzt links neben dem FAB über der Nav, Neuladen per aktualisiereApp(). -->
+  <div id="update-karte" class="update-karte" role="status" hidden>
+    <span class="update-karte-icon" data-icon="aktualisieren" aria-hidden="true"></span>
+    <span class="update-karte-text">Neue Version verfügbar</span>
+    <button type="button" class="button-klein" onclick="aktualisiereApp()">Jetzt aktualisieren</button>
+  </div>
+
   <!-- ---------- Feste Bottom-Navigation ---------- -->
   <nav class="bottom-nav">
     <button type="button" class="bottom-nav-item aktiv" data-ansicht="uebersicht" onclick="wechsleAnsicht('uebersicht')">
@@ -2852,6 +3903,209 @@
       Wetter
     </button>
   </nav>
+
+  <!-- ---------- "Daten & Sicherung" als Vollbild-Seite ----------
+       Nutzt dieselben Klassen wie die Formular-Seite (Slide-In, Kopf,
+       weiße Abschnitts-Karten). Öffnen/Schließen: oeffneSicherungSeite() /
+       schliesseSicherungSeite(). -->
+  <div id="sicherung-seite" class="formular-seite" role="dialog" aria-modal="true" aria-labelledby="sicherung-titel">
+    <div class="formular-seite-kopf">
+      <button type="button" class="formular-zurueck-btn" onclick="schliesseSicherungSeite()">
+        <span data-icon="zurueck" aria-hidden="true"></span>
+        Zurück
+      </button>
+      <h2 id="sicherung-titel" class="formular-seite-titel">Daten &amp; Sicherung</h2>
+      <!-- leere dritte Spalte, damit der Titel wie beim Formular mittig steht -->
+      <span class="sicherung-kopf-platzhalter" aria-hidden="true"></span>
+    </div>
+    <div class="wellenlinie wellenlinie--dezent" aria-hidden="true"></div>
+
+    <div class="sicherung-inhalt">
+      <!-- Konto & Synchronisation (aktualisiereKontoBereich()) - Inhalt je nach
+           Anmeldezustand; alle Texte per textContent gesetzt -->
+      <div class="formular-abschnitt" id="konto-bereich">
+        <h3 class="formular-abschnitt-titel">Konto &amp; Synchronisation</h3>
+        <div id="konto-angemeldet" hidden>
+          <p class="sicherung-text">Angemeldet als <b id="konto-email"></b></p>
+          <p class="sync-status-zeile"><i class="sync-punkt" id="konto-sync-punkt" aria-hidden="true"></i><span id="konto-sync-status"></span></p>
+          <p class="sicherung-status" id="konto-sync-zeit"></p>
+          <p class="sicherung-status" id="konto-sync-wartend"></p>
+          <button type="button" class="sicherung-btn" id="konto-sync-btn" onclick="synchronisiereJetzt()">
+            <span data-icon="aktualisieren" aria-hidden="true"></span> Jetzt synchronisieren
+          </button>
+          <button type="button" class="sicherung-btn sicherung-btn--zweitrangig" id="konto-uebernahme-btn" hidden onclick="zeigeUebernahmeSeite()">
+            <span data-icon="laden" aria-hidden="true"></span> Daten dieses Geräts übertragen
+          </button>
+          <button type="button" class="sicherung-btn sicherung-btn--zweitrangig" onclick="meldeAb()">Abmelden</button>
+        </div>
+        <div id="konto-abgemeldet">
+          <p class="sicherung-text">Melde dich an, um deine Fänge zusätzlich auf deinem Server zu sichern und auf mehreren Geräten zu sehen. Ohne Konto bleibt alles nur auf diesem Gerät.</p>
+          <button type="button" class="sicherung-btn" onclick="zeigeAnmeldeSeite()">Anmelden</button>
+        </div>
+      </div>
+
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">Fänge sichern</h3>
+        <p class="sicherung-text">Speichert alle Fänge inklusive Fotos in einer Datei. Bewahre sie z. B. in der Dateien-App, in Google Drive oder per Mail auf.</p>
+        <button type="button" class="sicherung-btn" onclick="exportiereFaenge()">
+          <span data-icon="sichern" aria-hidden="true"></span> Fänge sichern
+        </button>
+        <p class="sicherung-status" id="sicherung-letzte">Letzte Sicherung: noch nie</p>
+        <p class="sicherung-status" id="sicherung-export-status" role="status"></p>
+      </div>
+
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">Sicherung laden</h3>
+        <p class="sicherung-text">Lädt Fänge aus einer Sicherungsdatei. Vorhandene Fänge bleiben erhalten, doppelte werden übersprungen.</p>
+        <input type="file" id="sicherung-import-input" accept=".json,application/json" class="foto-input-versteckt">
+        <button type="button" class="sicherung-btn sicherung-btn--zweitrangig" onclick="waehleSicherungsDatei()">
+          <span data-icon="laden" aria-hidden="true"></span> Sicherung laden
+        </button>
+        <p class="sicherung-status" id="sicherung-import-status" role="status"></p>
+      </div>
+
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">Speicherplatz</h3>
+        <div class="speicher-balken" aria-hidden="true"><div class="speicher-balken-fuellung" id="speicher-balken-fuellung"></div></div>
+        <p class="sicherung-status" id="speicher-text"></p>
+        <p class="sicherung-status" id="speicher-fotos-text"></p>
+      </div>
+
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">App-Version</h3>
+        <p class="sicherung-text" id="app-version-text"></p>
+        <button type="button" class="sicherung-btn sicherung-btn--zweitrangig" onclick="sucheUpdateManuell()">
+          <span data-icon="aktualisieren" aria-hidden="true"></span> Nach Update suchen
+        </button>
+        <p class="sicherung-status" id="update-status" role="status"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Anmeldeseite (Supabase, E-Mail + Passwort) ----------
+       Erscheint beim Start, solange weder ein Konto gespeichert ist noch
+       "Erstmal ohne Konto weiter" gewählt wurde. Ein echtes <form> mit
+       passenden autocomplete-Werten, damit Passwort-Manager funktionieren.
+       Keine Registrierung (ist auf dem Server abgeschaltet). -->
+  <div id="anmelde-seite" class="vollbild-overlay" role="dialog" aria-modal="true" aria-labelledby="anmelde-titel" hidden>
+    <div class="anmelde-inhalt">
+      <div class="anmelde-logo" data-icon="fisch" aria-hidden="true"></div>
+      <h2 id="anmelde-titel" class="anmelde-titel">Catch Log</h2>
+      <p class="anmelde-untertitel">Melde dich an, damit deine Fänge sicher auf deinem Server liegen und auf all deinen Geräten erscheinen.</p>
+
+      <form id="anmelde-formular" class="formular-abschnitt" novalidate>
+        <label for="anmelde-email">E-Mail</label>
+        <input type="email" id="anmelde-email" name="email" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false" required>
+
+        <label for="anmelde-passwort">Passwort</label>
+        <div class="passwort-feld">
+          <input type="password" id="anmelde-passwort" name="password" autocomplete="current-password" required>
+          <button type="button" class="passwort-zeigen-btn" id="passwort-zeigen-btn" aria-label="Passwort anzeigen" aria-pressed="false" onclick="schaltePasswortSichtbarkeit()">
+            <span data-icon="auge" aria-hidden="true"></span>
+          </button>
+        </div>
+
+        <p id="anmelde-fehler" class="anmelde-fehler" role="alert" hidden></p>
+        <button type="submit" id="anmelde-btn">Anmelden</button>
+      </form>
+
+      <button type="button" class="anmelde-ohne-konto" onclick="weiterOhneKonto()">Erstmal ohne Konto weiter</button>
+    </div>
+  </div>
+
+  <!-- ---------- Erste Übernahme der lokalen Daten auf den Server ----------
+       Nach der ersten Anmeldung auf einem Gerät mit Einträgen. Erst nach
+       "Übertragen" wird hochgeladen (siehe bestaetigeUebernahme()). -->
+  <div id="uebernahme-seite" class="vollbild-overlay" role="dialog" aria-modal="true" aria-labelledby="uebernahme-titel" hidden>
+    <div class="anmelde-inhalt">
+      <div class="anmelde-logo" data-icon="wolke" aria-hidden="true"></div>
+      <h2 id="uebernahme-titel" class="anmelde-titel">Daten übertragen?</h2>
+      <p class="anmelde-untertitel" id="uebernahme-text"></p>
+
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">1. Sicherung speichern</h3>
+        <p class="sicherung-text">Empfohlen, bevor etwas übertragen wird: eine Sicherungsdatei mit allen Fängen und Fotos.</p>
+        <button type="button" class="sicherung-btn sicherung-btn--zweitrangig" onclick="sichereVorUebernahme()">
+          <span data-icon="sichern" aria-hidden="true"></span> Sicherung speichern
+        </button>
+        <p class="sicherung-status" id="uebernahme-sicherung-status" role="status"></p>
+      </div>
+
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">2. Übertragen</h3>
+        <p class="sicherung-text">Die Einträge werden mit denen auf dem Server zusammengeführt. Nichts Neueres wird überschrieben, nichts gelöscht.</p>
+        <button type="button" class="sicherung-btn" onclick="bestaetigeUebernahme()">
+          <span data-icon="laden" aria-hidden="true"></span> Übertragen
+        </button>
+        <button type="button" class="sicherung-btn sicherung-btn--zweitrangig" onclick="lehneUebernahmeAb()">Nicht übertragen</button>
+        <p class="sicherung-text">„Nicht übertragen“: Diese Einträge bleiben nur auf diesem Gerät, neue werden trotzdem synchronisiert. Du kannst sie später unter Daten &amp; Sicherung übertragen.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Angeltag eintragen/bearbeiten (Vollbild-Seite wie das Fang-Formular) ----------
+       Öffnen: oeffneAngeltagFormular() / bearbeiteAngeltag(id), Schließen:
+       schliesseAngeltagFormular(). Speichern läuft über das submit-Event. -->
+  <div id="angeltag-seite" class="formular-seite" role="dialog" aria-modal="true" aria-labelledby="angeltag-titel">
+    <div class="formular-seite-kopf">
+      <button type="button" class="formular-zurueck-btn" onclick="schliesseAngeltagFormular()">
+        <span data-icon="zurueck" aria-hidden="true"></span>
+        Zurück
+      </button>
+      <h2 id="angeltag-titel" class="formular-seite-titel">Angeltag eintragen</h2>
+      <button type="submit" form="angeltag-formular" class="formular-kopf-speichern-btn">Speichern</button>
+    </div>
+    <div class="wellenlinie wellenlinie--dezent" aria-hidden="true"></div>
+
+    <form id="angeltag-formular">
+      <div class="formular-abschnitt">
+        <h3 class="formular-abschnitt-titel">Angeltag</h3>
+        <!-- Hinweis, wenn für das gewählte Datum schon ein Angeltag existiert -->
+        <p id="angeltag-hinweis" class="angeltag-hinweis" role="status" hidden></p>
+
+        <label for="angeltag-datum">Datum</label>
+        <input type="date" id="angeltag-datum" required>
+
+        <div class="angeltag-zeiten">
+          <div>
+            <label for="angeltag-start">Start (optional)</label>
+            <input type="time" id="angeltag-start">
+          </div>
+          <div>
+            <label for="angeltag-ende">Ende (optional)</label>
+            <input type="time" id="angeltag-ende">
+          </div>
+        </div>
+
+        <label for="angeltag-gewaesser">Gewässer (optional)</label>
+        <!-- Vorschläge aus allen bisherigen Gewässern (fuelleGewaesserVorschlaege()) -->
+        <input type="text" id="angeltag-gewaesser" list="angeltag-gewaesser-vorschlaege" placeholder="z. B. Musterteich" autocomplete="off">
+        <datalist id="angeltag-gewaesser-vorschlaege"></datalist>
+
+        <label for="angeltag-notizen">Notizen (optional)</label>
+        <textarea id="angeltag-notizen" placeholder="z. B. viel Wind, nur Fehlbisse …"></textarea>
+      </div>
+
+      <button type="submit" id="angeltag-speichern-button">Angeltag speichern</button>
+    </form>
+  </div>
+
+  <!-- ---------- Detailansicht eines Angeltags ----------
+       Öffnen: zeigeAngeltagDetail(id), Schließen: schliesseAngeltagDetail(). -->
+  <div id="angeltag-detail-seite" class="formular-seite" role="dialog" aria-modal="true" aria-labelledby="angeltag-detail-titel">
+    <div class="formular-seite-kopf">
+      <button type="button" class="formular-zurueck-btn" onclick="schliesseAngeltagDetail()">
+        <span data-icon="zurueck" aria-hidden="true"></span>
+        Zurück
+      </button>
+      <h2 id="angeltag-detail-titel" class="formular-seite-titel">Angeltag</h2>
+      <span class="sicherung-kopf-platzhalter" aria-hidden="true"></span>
+    </div>
+    <div class="wellenlinie wellenlinie--dezent" aria-hidden="true"></div>
+    <div class="sicherung-inhalt" id="angeltag-detail-inhalt">
+      <!-- wird per JavaScript befüllt (zeigeAngeltagDetail()) -->
+    </div>
+  </div>
 
   <!-- ---------- Formular als eigene Vollbild-Seite (kein Modal mehr) ----------
        Liegt immer im DOM, ist aber im geschlossenen Zustand per CSS unterhalb
@@ -2915,6 +4169,11 @@
           <img id="foto-vorschau-bild" class="foto-vorschau-bild" alt="Vorschau des ausgewählten Fotos">
           <button type="button" id="foto-entfernen-button" class="foto-entfernen-button" aria-label="Foto entfernen" onclick="entferneAusgewaehltesFoto()">×</button>
         </div>
+
+        <!-- Hinweis zu den Aufnahmedaten aus dem Foto (EXIF): Bestätigung,
+             Rückfrage "Übernehmen/Behalten" oder ruhiger "nichts gefunden"-Text.
+             Wird per JavaScript befüllt, siehe zeigeFotoExifHinweis(). -->
+        <div id="foto-exif-hinweis" class="foto-exif-hinweis" role="status" hidden></div>
       </div>
 
       <!-- ===== Abschnitt 2: Ort & Zeit ===== -->
@@ -3034,6 +4293,19 @@
   </div>
 
   <script>
+    // ===========================================================
+    // SUPABASE-ZUGANGSDATEN (öffentliche Werte - dürfen im Code stehen)
+    // ===========================================================
+    // Nur die Projekt-URL und der Publishable-/anon-Key. Die Daten schützt
+    // die Zeilensicherheit (RLS) auf dem Server: jeder sieht nur seine
+    // eigenen Zeilen. NIEMALS einen service_role- oder Secret-Key hier oder
+    // irgendwo sonst eintragen - der würde jede Sicherheitsregel aushebeln.
+    // Die Datenbank wird nur im Supabase-Dashboard geändert, nicht aus der App.
+    const SUPABASE_URL = "https://wrhcvokoewzwwczxvnhv.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_ftCpL5SiEqvUs4GeNLkVdg_qHBM8nb3";
+    // Feste Version (nicht "latest"), wird erst bei Bedarf nachgeladen
+    const SUPABASE_BIBLIOTHEK_URL = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.min.js";
+
     // ---------------------------------------------------------
     // Kleine, einfarbige SVG-Icons für die Detail-Zeilen. "stroke='currentColor'"
     // sorgt dafür, dass jedes Icon die Textfarbe seines umgebenden <span> annimmt -
@@ -3061,6 +4333,14 @@
       pfeilHoch: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>`,
       // Pfeil rechts in den aufklappbaren Tageszeilen der Wettervorhersage (dreht sich beim Öffnen)
       chevronRechts: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 6 15 12 9 18"/></svg>`,
+      // Daten & Sicherung: Zahnrad im Header, Sichern (Download), Laden (Upload)
+      zahnrad: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+      sichern: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+      laden: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+      // Synchronisation (Header-Status) und Passwort anzeigen/verbergen
+      wolke: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>`,
+      auge: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      augeZu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`,
 
       // Wetterlage-Icons für WETTERCODES (ersetzen die bisherigen Emojis) sowie
       // weitere Stellen, an denen bisher Emojis statt Linien-Icons standen.
@@ -3136,6 +4416,12 @@
     // wir hier sinnvolle Leerwerte - die fehlenden Felder werden einfach leer angezeigt.
     function ergaenzeFehlendeFelder(fang) {
       return {
+        // Grundfelder gab es schon immer - Standardwerte nur als Schutz für
+        // unvollständige Einträge aus importierten Sicherungen (sonst "undefined")
+        gewaesser: "",
+        laenge: "",
+        koeder: "",
+        notizen: "",
         methode: "",
         foto: null,
         uhrzeit: "",
@@ -3154,6 +4440,11 @@
         uvIndex: null,
         sonnenaufgang: "",
         sonnenuntergang: "",
+        // Für die Synchronisation (siehe SYNCHRONISATION): Zeitpunkt der
+        // letzten Änderung (ISO, "" = unbekannt/alt) und Lösch-Markierung.
+        // Gelöschte Einträge stehen nie in `faenge`, das Feld ist dort immer false.
+        geaendertAm: "",
+        geloescht: false,
         ...fang
       };
     }
@@ -3181,10 +4472,6 @@
           anfrage.onsuccess = () => resolve(anfrage.result);
           anfrage.onerror = () => reject(anfrage.error);
         });
-        // Bittet den Browser, die Daten nicht bei Platzmangel automatisch zu löschen
-        if (navigator.storage && navigator.storage.persist) {
-          navigator.storage.persist().catch(() => {});
-        }
       }
       return fotoDbVersprechen;
     }
@@ -3239,7 +4526,11 @@
     // Submit-Handler früher still ab, ohne jede Meldung. Muss aufgerufen
     // werden, BEVOR neueFaenge in faenge übernommen wird, weil die
     // Foto-Änderungen gegen den bisherigen Stand (faenge) ermittelt werden.
-    async function speichereFaenge(neueFaenge) {
+    // optionen.vonSync = true: Änderung kommt vom Server (Abgleich) - dann
+    // wird weder ein neuer Zeitstempel gesetzt noch etwas zum Senden vorgemerkt.
+    async function speichereFaenge(neueFaenge, optionen = {}) {
+      // Geänderte/neue Einträge bekommen geaendertAm = jetzt (vor dem Schreiben)
+      const syncAenderungen = optionen.vonSync ? null : stempleAenderungen(faenge, neueFaenge);
       const bisherigeFotos = new Map(faenge.map(fang => [fang.id, fang.foto || null]));
       const neueIds = new Set(neueFaenge.map(fang => fang.id));
       const aenderungen = [];
@@ -3270,11 +4561,35 @@
         } else {
           localStorage.setItem(SPEICHER_SCHLUESSEL, JSON.stringify(neueFaenge));
         }
+        if (syncAenderungen) {
+          merkeLokaleAenderungen("fange", syncAenderungen); // Warteschlange für den Server
+        }
         return true;
       } catch (fehler) {
-        alert("Speichern fehlgeschlagen: Der Browser-Speicher ist voll oder gesperrt. "
-          + "Tipp: Fotos älterer Einträge entfernen oder Speicherplatz auf dem Gerät freigeben.");
+        // Speicher voll (QuotaExceededError, ältere Safari-Versionen: Code 22)
+        // klar benennen - alles andere (z. B. gesperrter Speicher) allgemein.
+        const speicherVoll = fehler && (fehler.name === "QuotaExceededError" || fehler.code === 22);
+        if (!optionen.vonSync) { // beim Abgleich im Hintergrund kein Popup, nur Sync-Status
+          alert(speicherVoll
+            ? "Speicher voll, bitte erst sichern und alte Fotos entfernen.\n\n"
+              + "Deine Eingabe bleibt im Formular stehen. Sichern geht über das Zahnrad oben rechts (Daten & Sicherung)."
+            : "Speichern fehlgeschlagen: Der Browser-Speicher ist gesperrt oder nicht verfügbar. "
+              + "Deine Eingabe bleibt im Formular stehen.");
+        }
         return false;
+      }
+    }
+
+    // Bittet den Browser, die Daten dauerhaft zu behalten und sie nicht bei
+    // Platzmangel von selbst zu löschen. Wird beim Start aufgerufen; nicht
+    // jeder Browser kennt das (oder fragt den Nutzer) - Fehler sind egal.
+    async function fordereDauerhaftenSpeicherAn() {
+      try {
+        if (navigator.storage && navigator.storage.persist && !(await navigator.storage.persisted())) {
+          await navigator.storage.persist();
+        }
+      } catch (fehler) {
+        // nicht unterstützt - kein Problem
       }
     }
 
@@ -3467,13 +4782,13 @@
 
       listeElement.innerHTML = letzteFaenge.map(fang => {
         const pbBadge = pbIds.has(fang.id) ? `<span class="mini-fang-pb">${ICONS.pokal} PB</span>` : "";
-        const laengeBadge = fang.laenge ? `<span class="mini-fang-laenge">${fang.laenge} cm</span>` : "";
+        const laengeBadge = fang.laenge ? `<span class="mini-fang-laenge">${maskiereHtml(fang.laenge)} cm</span>` : "";
         return `
           <div class="mini-fang-karte" onclick="bearbeiteFang('${fang.id}')" onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); bearbeiteFang('${fang.id}'); }" role="button" tabindex="0">
             <span class="mini-fang-icon">${ICONS.gewaesser}</span>
             <div class="mini-fang-mitte">
-              <div class="mini-fang-art">${fang.fischart} ${pbBadge}</div>
-              <div class="mini-fang-meta">${formatiereDatum(fang.datum)} · ${fang.gewaesser}</div>
+              <div class="mini-fang-art">${maskiereHtml(fang.fischart)} ${pbBadge}</div>
+              <div class="mini-fang-meta">${formatiereDatum(fang.datum)} · ${maskiereHtml(fang.gewaesser)}</div>
             </div>
             ${laengeBadge}
           </div>
@@ -3840,6 +5155,7 @@
         return;
       }
       faenge = neueFaenge;
+      synchronisiereAngeltage(); // automatischer Angeltag ohne Fang verschwindet wieder
       aktualisiereAlleAnsichten();
 
       // Falls gerade genau dieser Eintrag im Formular bearbeitet wurde: Formular zurücksetzen
@@ -3949,6 +5265,15 @@
         aktuelleFotoVorschauObjectUrl = null;
       }
       verstecktFotoVorschau();
+      setzeFotoExifZustandZurueck();
+    }
+
+    // Verwirft einen noch laufenden EXIF-Abruf samt Hinweis/Rückfrage
+    // (Foto entfernt, Formular geschlossen oder anderer Fang geöffnet).
+    function setzeFotoExifZustandZurueck() {
+      fotoExifAuslesungNr++;
+      wartendeFotoAufnahmezeit = null;
+      versteckeFotoExifHinweis();
     }
 
     // Neue Datei ausgewählt (Kamera-Aufnahme ODER Galerie-Auswahl, siehe
@@ -3967,7 +5292,247 @@
       }
       aktuelleFotoVorschauObjectUrl = URL.createObjectURL(datei);
       zeigeFotoVorschau(aktuelleFotoVorschauObjectUrl);
+      // Aufnahmedaten aus der ORIGINALdatei lesen - die Verkleinerung per
+      // <canvas> (leseBildAlsBase64(), erst beim Speichern) verwirft EXIF.
+      uebernehmeAufnahmedatenAusFoto(datei);
     });
+
+    // ---------------------------------------------------------
+    // Aufnahmedaten aus dem Foto (EXIF): Datum, Uhrzeit, ggf. GPS-Position
+    // ---------------------------------------------------------
+    // Bewusst ein kleiner eigener Parser statt einer Bibliothek wie exifr:
+    // Wir brauchen nur vier Werte (Aufnahmezeit + GPS), die App bleibt damit
+    // eine einzelne Datei ohne zusätzlichen CDN-Abruf, und das Auslesen
+    // klappt auch offline am Wasser bzw. wenn ein CDN mal hakt.
+    //
+    // EXIF steckt in einem "TIFF"-Block, der in JPEGs (APP1-Segment) und
+    // HEIC-Dateien jeweils direkt hinter der Kennung "Exif\0\0" beginnt.
+    // Deshalb suchen wir diese Kennung einfach in den ersten 512 KB der Datei.
+    const EXIF_LESE_BYTES = 512 * 1024;
+
+    // Hat der Nutzer Datum/Uhrzeit im aktuellen Formular selbst geändert?
+    // Dann wird vor dem Überschreiben nachgefragt (siehe unten). Programmatisch
+    // gesetzte Werte lösen kein "input"-Event aus, zählen also nicht mit.
+    let datumUhrzeitVonHandGeaendert = false;
+    document.getElementById("datum").addEventListener("input", () => { datumUhrzeitVonHandGeaendert = true; });
+    document.getElementById("uhrzeit").addEventListener("input", () => { datumUhrzeitVonHandGeaendert = true; });
+
+    // Zähler gegen veraltete Ergebnisse: wählt man schnell hintereinander zwei
+    // Fotos, darf das langsamere erste Auslesen das zweite nicht überschreiben.
+    let fotoExifAuslesungNr = 0;
+
+    // Liest Aufnahmezeit und GPS aus einer Bilddatei.
+    // Ergebnis: { datum: "YYYY-MM-DD", uhrzeit: "HH:MM", lat, lng } (fehlende
+    // Werte = null) oder null, wenn keine EXIF-Daten gefunden wurden.
+    async function leseExifAufnahmedaten(datei) {
+      const bytes = new Uint8Array(await datei.slice(0, EXIF_LESE_BYTES).arrayBuffer());
+
+      // "Exif\0\0" gefolgt von einem TIFF-Kopf ("II*\0" oder "MM\0*") suchen
+      let tiffStart = -1;
+      for (let i = 0; i + 10 < bytes.length; i++) {
+        if (bytes[i] === 0x45 && bytes[i + 1] === 0x78 && bytes[i + 2] === 0x69 && bytes[i + 3] === 0x66 &&
+            bytes[i + 4] === 0 && bytes[i + 5] === 0 &&
+            ((bytes[i + 6] === 0x49 && bytes[i + 7] === 0x49) || (bytes[i + 6] === 0x4D && bytes[i + 7] === 0x4D))) {
+          tiffStart = i + 6;
+          break;
+        }
+      }
+      if (tiffStart < 0) {
+        return null;
+      }
+
+      const ansicht = new DataView(bytes.buffer, tiffStart);
+      const littleEndian = bytes[tiffStart] === 0x49; // "II" = Intel, "MM" = Motorola
+      const u16 = pos => ansicht.getUint16(pos, littleEndian);
+      const u32 = pos => ansicht.getUint32(pos, littleEndian);
+
+      // Liest alle Einträge eines IFD (Verzeichnis) als { tagNummer: Wert-Infos }
+      function leseIfd(offset) {
+        const eintraege = {};
+        const anzahl = u16(offset);
+        for (let n = 0; n < anzahl; n++) {
+          const pos = offset + 2 + n * 12;
+          eintraege[u16(pos)] = { typ: u16(pos + 2), anzahl: u32(pos + 4), wertPos: pos + 8 };
+        }
+        return eintraege;
+      }
+      // Werte > 4 Byte stehen nicht im Eintrag selbst, sondern an einem Offset
+      const datenPos = (eintrag, groesse) => (groesse > 4 ? u32(eintrag.wertPos) : eintrag.wertPos);
+      function leseText(eintrag) {
+        if (!eintrag || eintrag.typ !== 2) return null;
+        const start = datenPos(eintrag, eintrag.anzahl);
+        let text = "";
+        for (let i = 0; i < eintrag.anzahl; i++) {
+          const zeichen = ansicht.getUint8(start + i);
+          if (zeichen === 0) break;
+          text += String.fromCharCode(zeichen);
+        }
+        return text;
+      }
+      // GPS-Koordinate: 3 Brüche (Grad, Minuten, Sekunden) -> Dezimalgrad
+      function leseGpsKoordinate(eintrag) {
+        if (!eintrag || eintrag.typ !== 5 || eintrag.anzahl !== 3) return null;
+        const start = datenPos(eintrag, 24);
+        const bruch = k => {
+          const nenner = u32(start + k * 8 + 4);
+          return nenner ? u32(start + k * 8) / nenner : 0;
+        };
+        return bruch(0) + bruch(1) / 60 + bruch(2) / 3600;
+      }
+
+      const ifd0 = leseIfd(u32(4));
+      const exifIfd = ifd0[0x8769] ? leseIfd(u32(ifd0[0x8769].wertPos)) : {};
+      const gpsIfd = ifd0[0x8825] ? leseIfd(u32(ifd0[0x8825].wertPos)) : {};
+
+      // DateTimeOriginal (0x9003) bevorzugt, sonst CreateDate (0x9004).
+      // Format "2026:09:14 06:34:12" - Ortszeit der Kamera, wird bewusst
+      // NICHT über Date/UTC umgerechnet, sondern nur umformatiert.
+      let datum = null;
+      let uhrzeit = null;
+      const zeitText = leseText(exifIfd[0x9003]) || leseText(exifIfd[0x9004]);
+      const treffer = zeitText && zeitText.match(/^(\d{4}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2})/);
+      if (treffer && treffer[1] !== "0000") {
+        datum = `${treffer[1]}-${treffer[2]}-${treffer[3]}`;
+        uhrzeit = `${treffer[4]}:${treffer[5]}`;
+      }
+
+      // GPS: Breite (2) + Nord/Süd (1), Länge (4) + Ost/West (3)
+      let lat = leseGpsKoordinate(gpsIfd[0x0002]);
+      let lng = leseGpsKoordinate(gpsIfd[0x0004]);
+      if (lat != null && lng != null && !(lat === 0 && lng === 0)) {
+        if (leseText(gpsIfd[0x0001]) === "S") lat = -lat;
+        if (leseText(gpsIfd[0x0003]) === "W") lng = -lng;
+      } else {
+        lat = null;
+        lng = null;
+      }
+
+      if (!datum && lat == null) {
+        return null;
+      }
+      return { datum, uhrzeit, lat, lng };
+    }
+
+    // Zeigt den Hinweis unter dem Foto. "buttonsHtml" = optionale Buttons,
+    // ohne Buttons gibt es stattdessen ein "×" zum Wegtippen.
+    function zeigeFotoExifHinweis(text, { buttonsHtml = "", ruhig = false } = {}) {
+      const hinweis = document.getElementById("foto-exif-hinweis");
+      const aktionen = buttonsHtml
+        ? `<div class="foto-exif-hinweis-buttons">${buttonsHtml}</div>`
+        : `<button type="button" class="foto-exif-hinweis-schliessen" aria-label="Hinweis schließen" onclick="versteckeFotoExifHinweis()">×</button>`;
+      hinweis.innerHTML = `<span class="foto-exif-hinweis-text">${text}</span>${aktionen}`;
+      hinweis.classList.toggle("ruhig", ruhig);
+      hinweis.hidden = false;
+    }
+
+    function versteckeFotoExifHinweis() {
+      const hinweis = document.getElementById("foto-exif-hinweis");
+      hinweis.hidden = true;
+      hinweis.innerHTML = "";
+    }
+
+    // Aufnahmezeit, die auf "Übernehmen" wartet (nur während der Rückfrage gesetzt)
+    let wartendeFotoAufnahmezeit = null;
+
+    // "YYYY-MM-DD" + "HH:MM" -> "14.09.2026, 06:34 Uhr"
+    function formatiereAufnahmezeit(datum, uhrzeit) {
+      const [jahr, monat, tag] = datum.split("-");
+      return `${tag}.${monat}.${jahr}` + (uhrzeit ? `, ${uhrzeit} Uhr` : "");
+    }
+
+    // Wird nach jeder neuen Foto-Auswahl aufgerufen. Fehler werden komplett
+    // abgefangen - das Foto selbst wird davon unabhängig immer gespeichert.
+    async function uebernehmeAufnahmedatenAusFoto(datei) {
+      const nr = ++fotoExifAuslesungNr;
+      versteckeFotoExifHinweis();
+      wartendeFotoAufnahmezeit = null;
+
+      let daten = null;
+      try {
+        daten = await leseExifAufnahmedaten(datei);
+      } catch (fehler) {
+        daten = null; // kaputte/unbekannte Datei: einfach wie "keine Daten" behandeln
+      }
+      // Inzwischen anderes Foto gewählt, Foto entfernt oder Formular geschlossen?
+      if (nr !== fotoExifAuslesungNr) {
+        return;
+      }
+
+      if (!daten) {
+        zeigeFotoExifHinweis("Im Foto wurden keine Aufnahmedaten gefunden.", { ruhig: true });
+        return;
+      }
+
+      // Fangort nur setzen, wenn noch keiner gewählt ist. setzeStandort()
+      // zentriert die Karte und startet selbst den automatischen Wetter-Abruf.
+      const ortWirdGesetzt = daten.lat != null && !ausgewaehlterStandort;
+
+      if (daten.datum) {
+        const datumFeld = document.getElementById("datum");
+        const uhrzeitFeld = document.getElementById("uhrzeit");
+        const schonGleich = datumFeld.value === daten.datum && uhrzeitFeld.value === daten.uhrzeit;
+
+        if (schonGleich) {
+          if (ortWirdGesetzt) {
+            zeigeFotoExifHinweis("Fangort aus dem Foto übernommen.");
+          }
+        } else if (datumUhrzeitVonHandGeaendert || bearbeitungsId !== null) {
+          // Selbst eingetragene bzw. gespeicherte Werte nicht ungefragt überschreiben
+          wartendeFotoAufnahmezeit = { datum: daten.datum, uhrzeit: daten.uhrzeit };
+          zeigeFotoExifHinweis(
+            `Aufnahmedatum im Foto: ${formatiereAufnahmezeit(daten.datum, daten.uhrzeit)}. Übernehmen?`,
+            {
+              buttonsHtml:
+                `<button type="button" class="button-klein" onclick="bestaetigeFotoAufnahmezeit(true)">Übernehmen</button>` +
+                `<button type="button" class="button-klein behalten" onclick="bestaetigeFotoAufnahmezeit(false)">Behalten</button>`
+            }
+          );
+        } else {
+          setzeAufnahmezeitAusFoto(daten.datum, daten.uhrzeit, ortWirdGesetzt);
+          zeigeFotoExifHinweis(ortWirdGesetzt
+            ? "Datum, Uhrzeit und Fangort aus dem Foto übernommen."
+            : "Datum und Uhrzeit aus dem Foto übernommen.");
+        }
+      } else if (ortWirdGesetzt) {
+        zeigeFotoExifHinweis("Fangort aus dem Foto übernommen.");
+      }
+
+      if (ortWirdGesetzt) {
+        setzeStandort(daten.lat, daten.lng);
+      }
+    }
+
+    // Antwort auf die Rückfrage "Übernehmen?" / "Behalten"
+    function bestaetigeFotoAufnahmezeit(uebernehmen) {
+      const zeit = wartendeFotoAufnahmezeit;
+      wartendeFotoAufnahmezeit = null;
+      versteckeFotoExifHinweis();
+      if (uebernehmen && zeit) {
+        setzeAufnahmezeitAusFoto(zeit.datum, zeit.uhrzeit, false);
+      }
+    }
+
+    // Trägt Datum/Uhrzeit ein und lädt danach das automatische Wetter neu.
+    // "ortFolgt" = setzeStandort() läuft gleich ohnehin und holt das Wetter selbst.
+    function setzeAufnahmezeitAusFoto(datum, uhrzeit, ortFolgt) {
+      document.getElementById("datum").value = datum;
+      if (uhrzeit) {
+        document.getElementById("uhrzeit").value = uhrzeit;
+      }
+      // Ein AUTOMATISCH ermitteltes Wetter gehört zur alten Zeit -> verwerfen,
+      // damit versucheAutomatischesWetter() es neu holt. Selbst eingetragenes
+      // oder aus dem gespeicherten Fang stammendes Wetter bleibt unangetastet
+      // (lässt sich bei Bedarf über "Neu abrufen" aktualisieren).
+      const wetterFeld = document.getElementById("wetter");
+      if (automatischeWetterZusatzwerte && automatischeWetterZusatzwerte.wetterText === wetterFeld.value) {
+        wetterFeld.value = "";
+        automatischeWetterZusatzwerte = null;
+        aktualisiereWetterZusatzVorschau();
+      }
+      if (!ortFolgt) {
+        versucheAutomatischesWetter();
+      }
+    }
 
     // Baut den kleinen Vorschau-Text unterhalb des Wetter-Felds aus den
     // aktuell ermittelten Zusatzwerten (oder "" falls noch keine vorhanden sind).
@@ -4033,6 +5598,8 @@
       // gespeicherten Base64-Daten-URL, ganz ohne <input>.
       document.getElementById("foto").value = "";
       fotoWurdeEntfernt = false;
+      datumUhrzeitVonHandGeaendert = false;
+      setzeFotoExifZustandZurueck();
       if (fang.foto) {
         zeigeFotoVorschau(fang.foto);
       } else {
@@ -4097,6 +5664,8 @@
         aktuelleFotoVorschauObjectUrl = null;
       }
       verstecktFotoVorschau();
+      datumUhrzeitVonHandGeaendert = false;
+      setzeFotoExifZustandZurueck();
       entferneStandortAuswahl();
       if (formularKarte) {
         formularKarte.setView(STANDARD_KARTENZENTRUM, STANDARD_ZOOM);
@@ -4120,8 +5689,8 @@
     // gespeichert (typisch 100-300 KB). Kann der Browser das Bild nicht dekodieren,
     // wird als Notlösung die unveränderte Datei eingelesen.
     // ---------------------------------------------------------
-    const FOTO_MAX_KANTE = 1280;
-    const FOTO_JPEG_QUALITAET = 0.8;
+    const FOTO_MAX_KANTE = 1000;
+    const FOTO_JPEG_QUALITAET = 0.75;
 
     function leseDateiAlsDataUrl(datei) {
       return new Promise((resolve, reject) => {
@@ -5164,7 +6733,7 @@
         return `
           <div class="legende-zeile">
             <span class="legende-farbe" style="background:${farbe}"></span>
-            <span class="legende-label">${segment.label}</span>
+            <span class="legende-label">${maskiereHtml(segment.label)}</span>
             <span class="legende-wert">${prozent}% (${segment.anzahl})</span>
           </div>
         `;
@@ -5215,7 +6784,7 @@
         const farbe = eintrag.anzahl === maxAnzahl ? "var(--farbe-akzent)" : "var(--farbe-primaer)";
         return `
           <div class="balken-zeile">
-            <span class="balken-label">${eintrag.label}</span>
+            <span class="balken-label">${maskiereHtml(eintrag.label)}</span>
             <svg class="balken-svg" viewBox="0 0 100 14" preserveAspectRatio="none">
               <rect x="0" y="2" width="100" height="10" rx="5" fill="rgba(0, 116, 225, 0.08)"></rect>
               <rect x="0" y="2" width="${breite.toFixed(1)}" height="10" rx="5" fill="${farbe}"></rect>
@@ -5314,7 +6883,7 @@
         return `
           <details class="koeder-details">
             <summary>
-              <span>${eintrag.label} <span class="koeder-details-anzahl">(${eintrag.anzahl})</span></span>
+              <span>${maskiereHtml(eintrag.label)} <span class="koeder-details-anzahl">(${eintrag.anzahl})</span></span>
               <svg class="chevron-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </summary>
             <div class="koeder-details-inhalt">${baueHorizontalBalken(koederVerteilung)}</div>
@@ -5466,7 +7035,7 @@
           <div class="info-zeile">
             <div class="info-kopf">
               <span class="rang-platz${index === 0 ? " eins" : ""}">${index + 1}</span>
-              <span class="info-name">${gewaesser.name}</span>
+              <span class="info-name">${maskiereHtml(gewaesser.name)}</span>
               <span class="info-hauptwert">${gewaesser.anzahl} Fänge</span>
             </div>
             <div class="info-unterzeile">
@@ -5584,8 +7153,8 @@
         <div class="mini-kachel">
           <div class="mini-kachel-icon">${ICONS.uhr}</div>
           <div class="mini-kachel-label">${label}</div>
-          <div class="mini-kachel-wert">${fang.uhrzeit}</div>
-          <div class="mini-kachel-unterzeile">${fang.fischart} · ${formatiereDatum(fang.datum)}</div>
+          <div class="mini-kachel-wert">${maskiereHtml(fang.uhrzeit)}</div>
+          <div class="mini-kachel-unterzeile">${maskiereHtml(fang.fischart)} · ${formatiereDatum(fang.datum)}</div>
         </div>
       `;
 
@@ -5621,7 +7190,7 @@
         return `
           <div class="info-zeile">
             <div class="info-kopf">
-              <span class="info-name">${eintrag.label}</span>
+              <span class="info-name">${maskiereHtml(eintrag.label)}</span>
               <span class="info-hauptwert">${avgLaenge ? `Ø ${avgLaenge} cm` : "–"}</span>
             </div>
             <div class="info-unterzeile">
@@ -5638,6 +7207,13 @@
     // Kuchendiagramme plus alle erweiterten Auswertungen, jeweils als eigene
     // Karte (.statistik-karte).
     function zeigeStatistik() {
+      // Umschalter "Fänge" | "Angeltage" - im Angeltage-Modus nur die neue Auswertung bauen
+      aktualisiereStatistikUmschalter();
+      if (statistikModus === "angeltage") {
+        zeigeAngeltageAuswertung();
+        return;
+      }
+
       const inhaltElement = document.getElementById("statistik-inhalt");
 
       if (faenge.length === 0) {
@@ -5945,6 +7521,7 @@
       zeigeFaenge();
       aktualisiereUebersichtsKarte();
       aktualisiereWellenFische();
+      aktualisiereSicherungsHinweis();
       if (document.getElementById("ansicht-statistik").style.display !== "none") {
         zeigeStatistik();
       }
@@ -6022,6 +7599,7 @@
         return; // Formular-Seite bleibt offen, eingegebene Daten gehen nicht verloren
       }
       faenge = neueFaenge;
+      synchronisiereAngeltage(); // fehlenden Angeltag anlegen / verwaisten automatischen entfernen
       aktualisiereAlleAnsichten();
 
       // Formular zurücksetzen, Seite rausschieben und zurück in den "neuer Eintrag"-Modus wechseln
@@ -6547,6 +8125,2298 @@
       `;
     }
 
+    // ===========================================================
+    // ANGELTAGE: Kalendertage am Wasser - mit oder ohne Fang
+    // ===========================================================
+    // Ein Angeltag ist ein Kalendertag (höchstens einer pro Datum). Ob er ein
+    // Fangtag ist, wird IMMER aus den Fängen mit demselben `datum` berechnet
+    // und nie gespeichert - so kann nichts doppelt gepflegt werden oder
+    // auseinanderlaufen. Eigener localStorage-Schlüssel, die Fänge selbst
+    // (fangLogbuchEintraege) bleiben unberührt.
+    const ANGELTAGE_SCHLUESSEL = "angeltageEintraege";
+    const ANGELTAGE_EINSTELLUNGEN_SCHLUESSEL = "angeltageEinstellungen";
+    const STANDARD_JAHRESZIEL = 50;
+
+    // Neue Felder hier mit Standardwert ergänzen, damit alte Einträge (und alte
+    // Sicherungsdateien) nie kaputtgehen - gleiches Prinzip wie ergaenzeFehlendeFelder().
+    function ergaenzeFehlendeAngeltagFelder(tag) {
+      return {
+        startzeit: "",
+        endzeit: "",
+        gewaesser: "",
+        notizen: "",
+        quelle: "manuell",
+        geaendertAm: "", // Synchronisation, siehe ergaenzeFehlendeFelder()
+        geloescht: false,
+        ...tag
+      };
+    }
+
+    function ladeAngeltage() {
+      try {
+        const gespeichert = JSON.parse(localStorage.getItem(ANGELTAGE_SCHLUESSEL) || "[]");
+        return Array.isArray(gespeichert)
+          ? gespeichert.filter(tag => tag && /^\d{4}-\d{2}-\d{2}$/.test(tag.datum)).map(ergaenzeFehlendeAngeltagFelder)
+          : [];
+      } catch (fehler) {
+        return [];
+      }
+    }
+
+    // Gleiches Muster wie speichereFaenge(): wirft nie, gibt true/false zurück.
+    // Aufrufer bauen die neue Liste separat und übernehmen sie nur bei Erfolg.
+    // still = true: keine Meldung (für den automatischen Abgleich im Hintergrund,
+    // der beim nächsten Mal einfach erneut versucht wird).
+    // optionen.vonSync wie bei speichereFaenge()
+    function speichereAngeltage(neueAngeltage, still = false, optionen = {}) {
+      try {
+        const syncAenderungen = optionen.vonSync ? null : stempleAenderungen(angeltage, neueAngeltage);
+        localStorage.setItem(ANGELTAGE_SCHLUESSEL, JSON.stringify(neueAngeltage));
+        if (syncAenderungen) {
+          merkeLokaleAenderungen("angeltage", syncAenderungen);
+        }
+        return true;
+      } catch (fehler) {
+        if (!still) {
+          const speicherVoll = fehler && (fehler.name === "QuotaExceededError" || fehler.code === 22);
+          alert(speicherVoll
+            ? "Speicher voll, bitte erst sichern und alte Fotos entfernen.\n\nDeine Eingabe bleibt stehen."
+            : "Speichern fehlgeschlagen: Der Browser-Speicher ist gesperrt oder nicht verfügbar.");
+        }
+        return false;
+      }
+    }
+
+    function ladeAngeltagEinstellungen() {
+      try {
+        const gespeichert = JSON.parse(localStorage.getItem(ANGELTAGE_EINSTELLUNGEN_SCHLUESSEL) || "{}");
+        return { jahresziel: STANDARD_JAHRESZIEL, ...(gespeichert && typeof gespeichert === "object" ? gespeichert : {}) };
+      } catch (fehler) {
+        return { jahresziel: STANDARD_JAHRESZIEL };
+      }
+    }
+
+    function speichereAngeltagEinstellungen(neueEinstellungen, optionen = {}) {
+      try {
+        const zuSpeichern = optionen.vonSync
+          ? neueEinstellungen
+          : { ...neueEinstellungen, geaendertAm: new Date().toISOString() };
+        localStorage.setItem(ANGELTAGE_EINSTELLUNGEN_SCHLUESSEL, JSON.stringify(zuSpeichern));
+        if (!optionen.vonSync) {
+          merkeEinstellungenAenderung();
+        }
+        return true;
+      } catch (fehler) {
+        if (!optionen.vonSync) {
+          alert("Die Einstellung konnte nicht gespeichert werden (Speicher voll oder gesperrt).");
+        }
+        return false;
+      }
+    }
+
+    let angeltage = ladeAngeltage();
+    let angeltagEinstellungen = ladeAngeltagEinstellungen();
+
+    // Kurze, eindeutige ID nur aus harmlosen Zeichen (landet in onclick="...")
+    function neueAngeltagId() {
+      return "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    }
+
+    function angeltagHatEigeneAngaben(tag) {
+      return Boolean(tag.startzeit || tag.endzeit || tag.notizen);
+    }
+
+    // ---------- Automatischer Abgleich mit den Fängen ----------
+    // Liefert die abgeglichene Liste (oder null, wenn sich nichts ändert):
+    // 1. automatische Tage ohne Fang UND ohne eigene Angaben fliegen raus
+    //    (z. B. nach Löschen eines Fangs oder Ändern seines Datums),
+    // 2. für jedes Fang-Datum ohne Angeltag kommt ein automatischer dazu.
+    // Manuelle Tage bleiben immer. Läuft gefahrlos beliebig oft (keine Duplikate).
+    function gleicheAngeltageAb(tage, alleFaenge) {
+      const ersterFangJeDatum = new Map();
+      sortiereFaengeNachZeit(alleFaenge).forEach(fang => {
+        if (fang.datum && !ersterFangJeDatum.has(fang.datum)) {
+          ersterFangJeDatum.set(fang.datum, fang);
+        }
+      });
+
+      const bleibende = tage.filter(tag =>
+        tag.quelle !== "auto" || ersterFangJeDatum.has(tag.datum) || angeltagHatEigeneAngaben(tag));
+      const vorhandeneDaten = new Set(bleibende.map(tag => tag.datum));
+      const vergebeneIds = new Set(bleibende.map(tag => tag.id));
+      const neue = [];
+      ersterFangJeDatum.forEach((fang, datum) => {
+        if (!vorhandeneDaten.has(datum)) {
+          // Feste ID aus dem Datum: legen zwei Geräte denselben automatischen
+          // Tag an, landet er auf dem Server in derselben Zeile statt doppelt.
+          // (Nur falls die ID schon vergeben ist - Tag wurde umdatiert - zufällig.)
+          const festeId = `auto-${datum}`;
+          neue.push(ergaenzeFehlendeAngeltagFelder({
+            id: vergebeneIds.has(festeId) ? neueAngeltagId() + neue.length : festeId,
+            datum,
+            gewaesser: fang.gewaesser || "",
+            quelle: "auto"
+          }));
+        }
+      });
+
+      if (neue.length === 0 && bleibende.length === tage.length) {
+        return null;
+      }
+      return [...bleibende, ...neue];
+    }
+
+    // Aufruf nach jedem Speichern/Löschen/Import von Fängen und beim Start
+    // (NICHT nach dem Löschen eines Angeltags - der soll bis zum nächsten
+    // Fang-Speichern bzw. Start wirklich weg sein).
+    function synchronisiereAngeltage() {
+      const abgeglichen = gleicheAngeltageAb(angeltage, faenge);
+      if (abgeglichen && speichereAngeltage(abgeglichen, true)) {
+        angeltage = abgeglichen;
+      }
+    }
+
+    // ---------- Berechnungen ----------
+    function uhrzeitInMinuten(uhrzeit) {
+      if (!/^\d{1,2}:\d{2}/.test(uhrzeit || "")) {
+        return null;
+      }
+      const [stunde, minute] = uhrzeit.split(":").map(Number);
+      return stunde * 60 + minute;
+    }
+
+    // Fänge aufsteigend nach Datum + Uhrzeit (ohne Uhrzeit ans Tagesende)
+    function sortiereFaengeNachZeit(liste) {
+      return [...liste].sort((a, b) =>
+        (a.datum || "").localeCompare(b.datum || "") || (a.uhrzeit || "99").localeCompare(b.uhrzeit || "99"));
+    }
+
+    // Dauer in Stunden, nur wenn Start UND Ende bekannt sind. Ende vor Start =
+    // über Mitternacht (Nachtangeln). Gleich = keine verwertbare Dauer.
+    function angeltagDauerStunden(tag) {
+      const start = uhrzeitInMinuten(tag.startzeit);
+      const ende = uhrzeitInMinuten(tag.endzeit);
+      if (start === null || ende === null || start === ende) {
+        return null;
+      }
+      return ((ende - start + 1440) % 1440) / 60;
+    }
+
+    // Verknüpft jeden Angeltag mit seinen Fängen. Ergebnis aufsteigend nach Datum:
+    // { tag, faenge, anzahl, istFangtag, stunden, gewaesser, startMinuten }
+    function berechneAngeltagDaten() {
+      const faengeJeDatum = new Map();
+      sortiereFaengeNachZeit(faenge).forEach(fang => {
+        if (!faengeJeDatum.has(fang.datum)) {
+          faengeJeDatum.set(fang.datum, []);
+        }
+        faengeJeDatum.get(fang.datum).push(fang);
+      });
+
+      return [...angeltage]
+        .sort((a, b) => a.datum.localeCompare(b.datum))
+        .map(tag => {
+          const tagesFaenge = faengeJeDatum.get(tag.datum) || [];
+          const ersterMitZeit = tagesFaenge.find(fang => uhrzeitInMinuten(fang.uhrzeit) !== null);
+          const ersterMitGewaesser = tagesFaenge.find(fang => fang.gewaesser);
+          return {
+            tag,
+            faenge: tagesFaenge,
+            anzahl: tagesFaenge.length,
+            istFangtag: tagesFaenge.length > 0,
+            stunden: angeltagDauerStunden(tag),
+            gewaesser: tag.gewaesser || (ersterMitGewaesser ? ersterMitGewaesser.gewaesser : ""),
+            // Für "nach Tageszeit": Startzeit, sonst Uhrzeit des frühesten Fangs
+            startMinuten: uhrzeitInMinuten(tag.startzeit) ?? (ersterMitZeit ? uhrzeitInMinuten(ersterMitZeit.uhrzeit) : null)
+          };
+        });
+    }
+
+    // Fangquote = Fangtage / Angeltage (0-100, gerundet)
+    function berechneFangquote(tageDaten) {
+      const fangtage = tageDaten.filter(eintrag => eintrag.istFangtag).length;
+      return {
+        fangtage,
+        ohneFang: tageDaten.length - fangtage,
+        prozent: tageDaten.length ? Math.round(fangtage / tageDaten.length * 100) : 0
+      };
+    }
+
+    // Kennzahlen. Stunden und Fische/Stunde NUR aus Tagen mit Start + Ende,
+    // sonst würden Tage ohne Zeitangabe die Fische zählen, aber keine Stunden.
+    function berechneAngeltagKennzahlen(tageDaten) {
+      const fischeGesamt = tageDaten.reduce((summe, eintrag) => summe + eintrag.anzahl, 0);
+      const mitDauer = tageDaten.filter(eintrag => eintrag.stunden !== null);
+      const stunden = mitDauer.reduce((summe, eintrag) => summe + eintrag.stunden, 0);
+      const fischeMitDauer = mitDauer.reduce((summe, eintrag) => summe + eintrag.anzahl, 0);
+      return {
+        angeltage: tageDaten.length,
+        fische: fischeGesamt,
+        stunden: mitDauer.length ? stunden : null,
+        fischeProTag: tageDaten.length ? fischeGesamt / tageDaten.length : null,
+        fischeProStunde: mitDauer.length && stunden > 0 ? fischeMitDauer / stunden : null
+      };
+    }
+
+    // Montag der Kalenderwoche eines ISO-Datums (zeitzonensicher über UTC)
+    function montagDerWoche(isoDatum) {
+      const [jahr, monat, tag] = isoDatum.split("-").map(Number);
+      const wochentag = (new Date(Date.UTC(jahr, monat - 1, tag)).getUTCDay() + 6) % 7; // Mo = 0
+      return isoDatumPlusTage(isoDatum, -wochentag);
+    }
+
+    // Serien zählen ANGELTAGE in Folge (nicht Kalendertage): Liegen zwischen
+    // zwei Angeltagen fünf Tage Pause, gehören sie trotzdem zur selben Serie.
+    // "Aktuell" = die Serie, mit der die Liste endet (also beim neuesten Angeltag).
+    function berechneSerien(tageDaten) {
+      function serie(bedingung) {
+        let laufend = 0;
+        let laengste = 0;
+        tageDaten.forEach(eintrag => {
+          laufend = bedingung(eintrag) ? laufend + 1 : 0;
+          laengste = Math.max(laengste, laufend);
+        });
+        return { aktuell: laufend, laengste };
+      }
+
+      // Wochenserie: Kalenderwochen (Mo-So) in Folge mit mind. einem Angeltag.
+      // Hat die laufende Woche noch keinen, wird ab der Vorwoche gezählt - sonst
+      // fiele die Serie jeden Montag auf 0, obwohl noch nichts verpasst ist.
+      const wochen = new Set(tageDaten.map(eintrag => montagDerWoche(eintrag.tag.datum)));
+      let woche = montagDerWoche(heutigesDatumIso());
+      if (!wochen.has(woche)) {
+        woche = isoDatumPlusTage(woche, -7);
+      }
+      let wochenAktuell = 0;
+      while (wochen.has(woche)) {
+        wochenAktuell++;
+        woche = isoDatumPlusTage(woche, -7);
+      }
+      let wochenLaengste = 0;
+      let wochenLaufend = 0;
+      let vorige = null;
+      [...wochen].sort().forEach(montag => {
+        wochenLaufend = vorige && isoDatumPlusTage(vorige, 7) === montag ? wochenLaufend + 1 : 1;
+        wochenLaengste = Math.max(wochenLaengste, wochenLaufend);
+        vorige = montag;
+      });
+
+      return {
+        fang: serie(eintrag => eintrag.istFangtag),
+        ohneFang: serie(eintrag => !eintrag.istFangtag),
+        wochen: { aktuell: wochenAktuell, laengste: wochenLaengste }
+      };
+    }
+
+    // Fangquote je Gruppe (Gewässer, Tageszeit). gruppeFuer() liefert den
+    // Gruppennamen oder null (Tag wird dann ausgelassen). Sortiert nach Quote.
+    function berechneFangquoteNachGruppe(tageDaten, gruppeFuer) {
+      const gruppen = new Map();
+      tageDaten.forEach(eintrag => {
+        const name = gruppeFuer(eintrag);
+        if (!name) {
+          return;
+        }
+        const schluessel = name.toLowerCase();
+        if (!gruppen.has(schluessel)) {
+          gruppen.set(schluessel, { label: name, tage: 0, fangtage: 0 });
+        }
+        const gruppe = gruppen.get(schluessel);
+        gruppe.tage++;
+        if (eintrag.istFangtag) {
+          gruppe.fangtage++;
+        }
+      });
+      return [...gruppen.values()]
+        .map(gruppe => ({ ...gruppe, prozent: Math.round(gruppe.fangtage / gruppe.tage * 100) }))
+        .sort((a, b) => b.prozent - a.prozent || b.tage - a.tage);
+    }
+
+    function tageszeitGruppe(eintrag) {
+      if (eintrag.startMinuten === null) {
+        return null;
+      }
+      if (eintrag.startMinuten < 10 * 60) return "Morgens (vor 10)";
+      if (eintrag.startMinuten < 15 * 60) return "Mittags (10–15)";
+      return "Abends (ab 15)";
+    }
+
+    // ---------- Formatierung ----------
+    function formatiereDezimalKomma(zahl, stellen) {
+      return zahl.toFixed(stellen).replace(".", ",");
+    }
+
+    function formatiereStunden(stunden) {
+      return stunden < 10 && stunden % 1 !== 0 ? formatiereDezimalKomma(stunden, 1) : String(Math.round(stunden));
+    }
+
+    function formatiereAngeltagDatum(isoDatum, mitWochentag = false) {
+      const [jahr, monat, tag] = isoDatum.split("-").map(Number);
+      const wochentag = mitWochentag
+        ? ["Sonntag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag"][new Date(Date.UTC(jahr, monat - 1, tag)).getUTCDay()] + ", "
+        : "";
+      const jahrText = jahr !== new Date().getFullYear() || mitWochentag ? ` ${jahr}` : "";
+      return `${wochentag}${tag}. ${MONATSNAMEN_LANG[monat - 1]}${jahrText}`;
+    }
+
+    function fischAnzahlText(anzahl) {
+      return anzahl === 0 ? "kein Fang" : `${anzahl} ${anzahl === 1 ? "Fisch" : "Fische"}`;
+    }
+
+    // ---------- Statistik-Umschalter ----------
+    let statistikModus = "faenge"; // "faenge" | "angeltage"
+
+    function setzeStatistikModus(modus) {
+      statistikModus = modus;
+      jahreszielWirdBearbeitet = false;
+      zeigeStatistik();
+    }
+
+    function aktualisiereStatistikUmschalter() {
+      ["faenge", "angeltage"].forEach(modus => {
+        const button = document.getElementById(`statistik-modus-${modus}`);
+        button.classList.toggle("aktiv", statistikModus === modus);
+        button.setAttribute("aria-pressed", String(statistikModus === modus));
+      });
+      document.getElementById("statistik-inhalt").hidden = statistikModus !== "faenge";
+      document.getElementById("angeltage-inhalt").hidden = statistikModus !== "angeltage";
+    }
+
+    // ---------- Auswertung (Statistik-Tab, Modus "Angeltage") ----------
+    let kalenderMonat = null;          // "YYYY-MM", null = aktueller Monat
+    let jahreszielWirdBearbeitet = false;
+
+    function zeigeAngeltageAuswertung() {
+      const inhalt = document.getElementById("angeltage-inhalt");
+      const eintragenButton = `
+        <button type="button" class="angeltag-eintragen-btn" onclick="oeffneAngeltagFormular()">
+          ${ICONS.neu} Angeltag eintragen
+        </button>`;
+
+      if (angeltage.length === 0) {
+        inhalt.innerHTML = `
+          <div class="statistik-karte angeltag-leer">
+            <h3 class="statistik-titel">Noch keine Angeltage</h3>
+            <p>Ein Angeltag ist jeder Tag am Wasser – mit oder ohne Fang. Tage mit Fang
+            entstehen automatisch, sobald du einen Fang speicherst. Tage ohne Fang
+            (Schneidertage) trägst du hier selbst ein.</p>
+            <p>So siehst du später deine Fangquote, Serien und wie oft du am Wasser warst.</p>
+          </div>
+          ${eintragenButton}`;
+        return;
+      }
+
+      const tageDaten = berechneAngeltagDaten();
+      inhalt.innerHTML = `
+        ${eintragenButton}
+        ${baueAngeltagKennzahlen(tageDaten)}
+        ${baueFangquoteKarte(tageDaten)}
+        ${baueJahreszielKarte(tageDaten)}
+        ${baueSerienKarte(tageDaten)}
+        ${baueAngeltagKalender(tageDaten)}
+        ${baueAngeltagVergleiche(tageDaten)}
+        ${baueLetzteAngeltage(tageDaten)}
+      `;
+    }
+
+    function baueAngeltagKennzahlen(tageDaten) {
+      const werte = berechneAngeltagKennzahlen(tageDaten);
+      const kachel = (label, wert) => `
+        <div class="kennzahl-karte">
+          <div class="kennzahl-label">${label}</div>
+          <div class="kennzahl-wert">${wert}</div>
+        </div>`;
+      return `
+        <div class="kennzahlen-raster angeltage-kennzahlen">
+          ${kachel("Angeltage gesamt", werte.angeltage)}
+          ${kachel("Stunden am Wasser", werte.stunden === null ? "–" : `${formatiereStunden(werte.stunden)}<span class="einheit"> h</span>`)}
+          ${kachel("Fische pro Angeltag", werte.fischeProTag === null ? "–" : formatiereDezimalKomma(werte.fischeProTag, 1))}
+          ${kachel("Fische pro Stunde", werte.fischeProStunde === null ? "–" : formatiereDezimalKomma(werte.fischeProStunde, 2))}
+        </div>`;
+    }
+
+    // Ring: Hintergrundkreis in blassem Orange (Tage ohne Fang), darüber der
+    // Fangtage-Anteil in --farbe-primaer. Zahl + Legende als HTML daneben.
+    function baueFangquoteKarte(tageDaten) {
+      const quote = berechneFangquote(tageDaten);
+      const fische = tageDaten.reduce((summe, eintrag) => summe + eintrag.anzahl, 0);
+      const umfang = 2 * Math.PI * 40;
+      const bogen = quote.prozent > 0
+        ? `<circle cx="48" cy="48" r="40" fill="none" stroke="var(--farbe-primaer)" stroke-width="10" stroke-linecap="${quote.prozent === 100 ? "butt" : "round"}"
+             stroke-dasharray="${(umfang * quote.prozent / 100).toFixed(1)} ${umfang.toFixed(1)}" transform="rotate(-90 48 48)"></circle>`
+        : "";
+      return statistikKarte("Fangquote", `
+        <div class="fangquote">
+          <div class="fangquote-ring" role="img" aria-label="Fangquote ${quote.prozent} Prozent">
+            <svg viewBox="0 0 96 96" aria-hidden="true">
+              <circle cx="48" cy="48" r="40" fill="none" stroke="var(--farbe-akzent)" stroke-width="10" opacity="0.3"></circle>
+              ${bogen}
+            </svg>
+            <b>${quote.prozent}%</b>
+          </div>
+          <ul class="fangquote-legende">
+            <li><i class="fangquote-punkt" style="background: var(--farbe-primaer)"></i><span><b>${quote.fangtage}</b> ${quote.fangtage === 1 ? "Tag" : "Tage"} mit Fang</span></li>
+            <li><i class="fangquote-punkt" style="background: var(--farbe-akzent)"></i><span><b>${quote.ohneFang}</b> ${quote.ohneFang === 1 ? "Tag" : "Tage"} ohne Fang</span></li>
+            <li class="angeltage-gedaempft">${fische} ${fische === 1 ? "Fisch" : "Fische"} an ${tageDaten.length} ${tageDaten.length === 1 ? "Angeltag" : "Angeltagen"}</li>
+          </ul>
+        </div>`);
+    }
+
+    // Nur Angeltage des laufenden Jahres zählen
+    function baueJahreszielKarte(tageDaten) {
+      const jahr = new Date().getFullYear();
+      const ziel = Math.max(1, Number(angeltagEinstellungen.jahresziel) || STANDARD_JAHRESZIEL);
+      const anzahl = tageDaten.filter(eintrag => eintrag.tag.datum.startsWith(`${jahr}-`)).length;
+      const anteil = Math.min(100, anzahl / ziel * 100);
+      const rest = ziel - anzahl;
+
+      const editor = jahreszielWirdBearbeitet
+        ? `<form class="jahresziel-editor" onsubmit="speichereJahresziel(event)">
+             <input type="number" id="jahresziel-eingabe" min="1" max="366" step="1" inputmode="numeric" value="${ziel}" aria-label="Jahresziel in Angeltagen" required>
+             <button type="submit" class="button-klein">Übernehmen</button>
+           </form>`
+        : "";
+
+      return `
+        <div class="statistik-karte">
+          <div class="statistik-titel-zeile">
+            <h3 class="statistik-titel">Jahresziel ${jahr}</h3>
+            <button type="button" class="icon-btn" onclick="schalteJahreszielEditor()" aria-label="Jahresziel ändern">${ICONS.bearbeiten}</button>
+          </div>
+          <div class="jahresziel-kopf">
+            <span>Ziel: ${ziel} Angeltage</span>
+            <span><b>${anzahl}</b> von ${ziel}</span>
+          </div>
+          <div class="jahresziel-balken${rest <= 0 ? " erreicht" : ""}" role="progressbar" aria-valuenow="${anzahl}" aria-valuemin="0" aria-valuemax="${ziel}">
+            <i style="width: ${anteil.toFixed(1)}%"></i>
+          </div>
+          <div class="angeltage-gedaempft">${rest > 0 ? `Noch ${rest} ${rest === 1 ? "Angeltag" : "Angeltage"} bis zum Ziel` : "Ziel erreicht – stark!"}</div>
+          ${editor}
+        </div>`;
+    }
+
+    function schalteJahreszielEditor() {
+      jahreszielWirdBearbeitet = !jahreszielWirdBearbeitet;
+      zeigeAngeltageAuswertung();
+      if (jahreszielWirdBearbeitet) {
+        document.getElementById("jahresziel-eingabe").focus();
+      }
+    }
+
+    function speichereJahresziel(event) {
+      event.preventDefault();
+      const wert = Math.round(Number(document.getElementById("jahresziel-eingabe").value));
+      if (!(wert >= 1 && wert <= 366)) {
+        return;
+      }
+      const neueEinstellungen = { ...angeltagEinstellungen, jahresziel: wert };
+      if (!speichereAngeltagEinstellungen(neueEinstellungen)) {
+        return;
+      }
+      angeltagEinstellungen = ladeAngeltagEinstellungen(); // inkl. neuem geaendertAm
+      jahreszielWirdBearbeitet = false;
+      zeigeAngeltageAuswertung();
+    }
+
+    function baueSerienKarte(tageDaten) {
+      const serien = berechneSerien(tageDaten);
+      const kachel = (klasse, wert, label, rekord) => `
+        <div class="serie-kachel ${klasse}">
+          <b>${wert}</b><span>${label}</span><small>Rekord ${rekord}</small>
+        </div>`;
+      return statistikKarte("Serien", `
+        <div class="serien-raster">
+          ${kachel("fang", serien.fang.aktuell, "Fangserie aktuell", serien.fang.laengste)}
+          ${kachel("ohne", serien.ohneFang.aktuell, "Serie ohne Fang", serien.ohneFang.laengste)}
+          ${kachel("", serien.wochen.aktuell, "Wochen in Folge am Wasser", serien.wochen.laengste)}
+        </div>
+        <p class="statistik-fussnote">Serien zählen Angeltage hintereinander, nicht Kalendertage.</p>`);
+    }
+
+    // Monatskalender: Fangtage gefüllt (Primär), Tage ohne Fang mit orangem
+    // Rahmen, nicht geangelte Tage neutral. Navigation nur zwischen dem
+    // ersten Monat mit Daten und dem letzten (bzw. dem aktuellen) Monat.
+    function baueAngeltagKalender(tageDaten) {
+      const aktuellerMonat = heutigesDatumIso().slice(0, 7);
+      const monate = tageDaten.map(eintrag => eintrag.tag.datum.slice(0, 7));
+      const ersterMonat = [monate[0], aktuellerMonat].sort()[0];
+      const letzterMonat = [monate[monate.length - 1], aktuellerMonat].sort()[1];
+      if (!kalenderMonat || kalenderMonat < ersterMonat || kalenderMonat > letzterMonat) {
+        kalenderMonat = aktuellerMonat;
+      }
+
+      const nachDatum = new Map(tageDaten.map(eintrag => [eintrag.tag.datum, eintrag]));
+      const [jahr, monat] = kalenderMonat.split("-").map(Number);
+      const tageImMonat = new Date(Date.UTC(jahr, monat, 0)).getUTCDate();
+      const versatz = (new Date(Date.UTC(jahr, monat - 1, 1)).getUTCDay() + 6) % 7; // Mo = 0
+      const heute = heutigesDatumIso();
+
+      let zellen = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map(name => `<div class="kalender-wochentag">${name}</div>`).join("");
+      zellen += "<div></div>".repeat(versatz);
+      for (let tag = 1; tag <= tageImMonat; tag++) {
+        const datum = `${kalenderMonat}-${String(tag).padStart(2, "0")}`;
+        const eintrag = nachDatum.get(datum);
+        const heuteKlasse = datum === heute ? " heute" : "";
+        if (eintrag) {
+          zellen += `<button type="button" class="kalender-tag ${eintrag.istFangtag ? "fang" : "ohne-fang"}${heuteKlasse}"
+            onclick="zeigeAngeltagDetail('${eintrag.tag.id}')"
+            aria-label="${tag}. ${MONATSNAMEN_LANG[monat - 1]}: ${fischAnzahlText(eintrag.anzahl)}">${tag}</button>`;
+        } else {
+          zellen += `<div class="kalender-tag${heuteKlasse}">${tag}</div>`;
+        }
+      }
+
+      return `
+        <div class="statistik-karte kalender-karte">
+          <div class="kalender-kopf">
+            <button type="button" class="icon-btn" onclick="blaettereKalender(-1)" aria-label="Vorheriger Monat" ${kalenderMonat <= ersterMonat ? "disabled" : ""}>${ICONS.zurueck}</button>
+            <h3 class="statistik-titel">${MONATSNAMEN_LANG[monat - 1]} ${jahr}</h3>
+            <button type="button" class="icon-btn" onclick="blaettereKalender(1)" aria-label="Nächster Monat" ${kalenderMonat >= letzterMonat ? "disabled" : ""}>${ICONS.chevronRechts}</button>
+          </div>
+          <div class="kalender-raster">${zellen}</div>
+          <div class="kalender-legende">
+            <span><i style="background: var(--farbe-primaer)"></i>Fang</span>
+            <span><i style="box-shadow: inset 0 0 0 2px var(--farbe-akzent)"></i>Kein Fang</span>
+            <span><i style="background: var(--farbe-karte-border)"></i>Nicht geangelt</span>
+          </div>
+        </div>`;
+    }
+
+    function blaettereKalender(richtung) {
+      const [jahr, monat] = kalenderMonat.split("-").map(Number);
+      const ziel = new Date(Date.UTC(jahr, monat - 1 + richtung, 1));
+      kalenderMonat = `${ziel.getUTCFullYear()}-${String(ziel.getUTCMonth() + 1).padStart(2, "0")}`;
+      zeigeAngeltageAuswertung();
+    }
+
+    // Balken mit Prozentwert. Höchste Quote (bei mind. 2 Angeltagen in der
+    // Gruppe) in --farbe-akzent; Gruppen mit nur 1 Angeltag: "wenig Daten".
+    function baueQuoteBalken(gruppen) {
+      if (gruppen.length === 0) {
+        return leerHinweisHtml("Noch keine passenden Angaben.");
+      }
+      const belastbare = gruppen.filter(gruppe => gruppe.tage >= 2);
+      const beste = belastbare.length > 1 ? Math.max(...belastbare.map(gruppe => gruppe.prozent)) : null;
+      return gruppen.map(gruppe => {
+        const farbe = gruppe.tage >= 2 && gruppe.prozent === beste ? "var(--farbe-akzent)" : "var(--farbe-primaer)";
+        const unterzeile = `${gruppe.tage} ${gruppe.tage === 1 ? "Angeltag · wenig Daten" : "Angeltage"}`;
+        return `
+          <div class="quote-zeile">
+            <span class="quote-zeile-label">${maskiereHtml(gruppe.label)}<small>${unterzeile}</small></span>
+            <svg class="balken-svg" viewBox="0 0 100 14" preserveAspectRatio="none" aria-hidden="true">
+              <rect x="0" y="2" width="100" height="10" rx="5" fill="rgba(0, 116, 225, 0.08)"></rect>
+              <rect x="0" y="2" width="${gruppe.prozent}" height="10" rx="5" fill="${farbe}"></rect>
+            </svg>
+            <span class="quote-zeile-wert">${gruppe.prozent}%</span>
+          </div>`;
+      }).join("");
+    }
+
+    function baueAngeltagVergleiche(tageDaten) {
+      const nachGewaesser = berechneFangquoteNachGruppe(tageDaten, eintrag => eintrag.gewaesser.trim() || null);
+      const nachTageszeit = berechneFangquoteNachGruppe(tageDaten, tageszeitGruppe);
+      return statistikKarte("Wann und wo fängst du?", `
+        <p class="quote-untertitel">Fangquote nach Gewässer</p>
+        ${baueQuoteBalken(nachGewaesser)}
+        <p class="quote-untertitel">Fangquote nach Tageszeit</p>
+        ${baueQuoteBalken(nachTageszeit)}`);
+    }
+
+    function angeltagZeileHtml(eintrag) {
+      const teile = [eintrag.gewaesser, eintrag.stunden !== null ? `${formatiereStunden(eintrag.stunden)} h` : ""]
+        .filter(Boolean).map(maskiereHtml);
+      return `
+        <li>
+          <button type="button" class="angeltag-zeile" onclick="zeigeAngeltagDetail('${eintrag.tag.id}')">
+            <span><b>${formatiereAngeltagDatum(eintrag.tag.datum)}</b><small>${teile.join(" · ") || "&nbsp;"}</small></span>
+            <span class="angeltag-zeile-wert${eintrag.anzahl === 0 ? " ohne" : ""}">${fischAnzahlText(eintrag.anzahl)}</span>
+          </button>
+        </li>`;
+    }
+
+    function baueLetzteAngeltage(tageDaten) {
+      const letzte = tageDaten.slice(-3).reverse();
+      return statistikKarte("Letzte Angeltage", `<ul class="angeltag-zeilen">${letzte.map(angeltagZeileHtml).join("")}</ul>`);
+    }
+
+    // ---------- Seiten öffnen/schließen (gleiche Mechanik wie die Formular-Seite) ----------
+    function oeffneVollbildSeite(id) {
+      const seite = document.getElementById(id);
+      seite.scrollTop = 0;
+      seite.classList.add("offen");
+      document.body.classList.add("formular-offen");
+    }
+
+    function schliesseVollbildSeite(id) {
+      document.getElementById(id).classList.remove("offen");
+      // Scroll-Sperre nur lösen, wenn keine andere Vollbild-Seite mehr offen ist
+      if (!document.querySelector(".formular-seite.offen")) {
+        document.body.classList.remove("formular-offen");
+      }
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key !== "Escape") {
+        return;
+      }
+      if (document.getElementById("angeltag-seite").classList.contains("offen")) {
+        schliesseAngeltagFormular();
+      } else if (document.getElementById("angeltag-detail-seite").classList.contains("offen")) {
+        schliesseAngeltagDetail();
+      }
+    });
+
+    // ---------- Formular "Angeltag eintragen/bearbeiten" ----------
+    let angeltagBearbeitungsId = null; // null = neuer Angeltag
+
+    function fuelleGewaesserVorschlaege() {
+      const namen = new Map();
+      [...faenge, ...angeltage].forEach(eintrag => {
+        const name = (eintrag.gewaesser || "").trim();
+        if (name && !namen.has(name.toLowerCase())) {
+          namen.set(name.toLowerCase(), name);
+        }
+      });
+      document.getElementById("angeltag-gewaesser-vorschlaege").innerHTML = [...namen.values()]
+        .sort((a, b) => a.localeCompare(b, "de"))
+        .map(name => `<option value="${maskiereHtml(name)}"></option>`).join("");
+    }
+
+    function setzeAngeltagHinweis(text) {
+      const hinweis = document.getElementById("angeltag-hinweis");
+      hinweis.textContent = text || "";
+      hinweis.hidden = !text;
+    }
+
+    // Füllt das Formular mit einem Angeltag (oder leer) und stellt den Modus ein
+    function fuelleAngeltagFormular(tag) {
+      angeltagBearbeitungsId = tag ? tag.id : null;
+      document.getElementById("angeltag-datum").value = tag ? tag.datum : heutigesDatumIso();
+      document.getElementById("angeltag-start").value = tag ? tag.startzeit : "";
+      document.getElementById("angeltag-ende").value = tag ? tag.endzeit : "";
+      document.getElementById("angeltag-gewaesser").value = tag ? tag.gewaesser : "";
+      document.getElementById("angeltag-notizen").value = tag ? tag.notizen : "";
+      document.getElementById("angeltag-titel").textContent = tag ? "Angeltag bearbeiten" : "Angeltag eintragen";
+      document.getElementById("angeltag-speichern-button").textContent = tag ? "Änderungen speichern" : "Angeltag speichern";
+    }
+
+    // Neuer Angeltag. Gibt es für das Datum schon einen, wird der bearbeitet.
+    function oeffneAngeltagFormular() {
+      fuelleGewaesserVorschlaege();
+      fuelleAngeltagFormular(null);
+      setzeAngeltagHinweis("");
+      pruefeAngeltagDatum();
+      oeffneVollbildSeite("angeltag-seite");
+    }
+
+    function bearbeiteAngeltag(id) {
+      const tag = angeltage.find(eintrag => eintrag.id === id);
+      if (!tag) {
+        return;
+      }
+      fuelleGewaesserVorschlaege();
+      fuelleAngeltagFormular(tag);
+      setzeAngeltagHinweis("");
+      oeffneVollbildSeite("angeltag-seite");
+    }
+
+    function schliesseAngeltagFormular() {
+      schliesseVollbildSeite("angeltag-seite");
+      angeltagBearbeitungsId = null;
+    }
+
+    // Beim Anlegen: existiert für das gewählte Datum schon ein Angeltag, wird
+    // statt eines zweiten dieser bearbeitet. Selbst getippte Angaben bleiben
+    // stehen, nur leere Felder werden mit den vorhandenen Werten gefüllt.
+    function pruefeAngeltagDatum() {
+      if (angeltagBearbeitungsId) {
+        return;
+      }
+      const datum = document.getElementById("angeltag-datum").value;
+      const vorhanden = angeltage.find(tag => tag.datum === datum);
+      if (!vorhanden) {
+        return;
+      }
+      const felder = { "angeltag-start": "startzeit", "angeltag-ende": "endzeit", "angeltag-gewaesser": "gewaesser", "angeltag-notizen": "notizen" };
+      Object.entries(felder).forEach(([elementId, feld]) => {
+        const element = document.getElementById(elementId);
+        if (!element.value) {
+          element.value = vorhanden[feld];
+        }
+      });
+      angeltagBearbeitungsId = vorhanden.id;
+      document.getElementById("angeltag-titel").textContent = "Angeltag bearbeiten";
+      document.getElementById("angeltag-speichern-button").textContent = "Änderungen speichern";
+      setzeAngeltagHinweis(`Für ${formatiereAngeltagDatum(datum, true)} gibt es schon einen Angeltag – du bearbeitest ihn.`);
+    }
+
+    document.getElementById("angeltag-datum").addEventListener("change", pruefeAngeltagDatum);
+
+    document.getElementById("angeltag-formular").addEventListener("submit", function (event) {
+      event.preventDefault();
+      const datum = document.getElementById("angeltag-datum").value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(datum)) {
+        return;
+      }
+      // Beim Bearbeiten auf ein Datum verschoben, das schon belegt ist?
+      const konflikt = angeltage.find(tag => tag.datum === datum && tag.id !== angeltagBearbeitungsId);
+      if (konflikt) {
+        setzeAngeltagHinweis(`Für ${formatiereAngeltagDatum(datum, true)} gibt es schon einen anderen Angeltag. Bitte ein anderes Datum wählen oder den vorhandenen Tag bearbeiten.`);
+        document.getElementById("angeltag-seite").scrollTop = 0;
+        return;
+      }
+
+      const bisher = angeltage.find(tag => tag.id === angeltagBearbeitungsId);
+      const tag = ergaenzeFehlendeAngeltagFelder({
+        ...(bisher || {}),
+        id: bisher ? bisher.id : neueAngeltagId(),
+        datum,
+        startzeit: document.getElementById("angeltag-start").value,
+        endzeit: document.getElementById("angeltag-ende").value,
+        gewaesser: document.getElementById("angeltag-gewaesser").value.trim(),
+        notizen: document.getElementById("angeltag-notizen").value.trim(),
+        quelle: bisher ? bisher.quelle : "manuell"
+      });
+
+      const neueAngeltage = bisher
+        ? angeltage.map(eintrag => eintrag.id === bisher.id ? tag : eintrag)
+        : [...angeltage, tag];
+      if (!speichereAngeltage(neueAngeltage)) {
+        return; // Seite bleibt offen, Eingaben gehen nicht verloren
+      }
+      angeltage = neueAngeltage;
+      kalenderMonat = datum.slice(0, 7); // Kalender springt zum gespeicherten Tag
+      schliesseAngeltagFormular();
+      aktualisiereAngeltagAnzeigen();
+      if (document.getElementById("angeltag-detail-seite").classList.contains("offen")) {
+        zeigeAngeltagDetail(tag.id);
+      }
+    });
+
+    // Auswertung neu zeichnen, falls gerade sichtbar
+    function aktualisiereAngeltagAnzeigen() {
+      if (document.getElementById("ansicht-statistik").style.display !== "none") {
+        zeigeStatistik();
+      }
+    }
+
+    // ---------- Detailansicht ----------
+    function zeigeAngeltagDetail(id) {
+      const eintrag = berechneAngeltagDaten().find(daten => daten.tag.id === id);
+      if (!eintrag) {
+        schliesseAngeltagDetail();
+        return;
+      }
+      const { tag } = eintrag;
+      document.getElementById("angeltag-detail-titel").textContent = formatiereAngeltagDatum(tag.datum);
+
+      const zeit = tag.startzeit || tag.endzeit
+        ? `${tag.startzeit || "?"} – ${tag.endzeit || "?"} Uhr${eintrag.stunden !== null ? ` (${formatiereStunden(eintrag.stunden)} h)` : ""}`
+        : "";
+      const werte = [
+        [ICONS.kalender, formatiereAngeltagDatum(tag.datum, true)],
+        [ICONS.uhr, zeit],
+        [ICONS.gewaesser, eintrag.gewaesser],
+        [ICONS.notizen, tag.notizen]
+      ].filter(([, text]) => text)
+        .map(([icon, text]) => `<div>${icon}<span>${maskiereHtml(text)}</span></div>`).join("");
+
+      const fangZeilen = eintrag.faenge.map(fang => {
+        const thumb = fang.foto
+          ? `<img class="liste-thumb" alt="" data-fang-id="${maskiereHtml(fang.id)}">`
+          : `<span class="liste-thumb" style="background:${LISTE_THUMB_FARBEN[Math.floor(textZuStabilerZahl(fischartSchluessel(fang), 6) * LISTE_THUMB_FARBEN.length)]}">${ICONS.fisch}</span>`;
+        const meta = [fang.uhrzeit ? `${fang.uhrzeit} Uhr` : "", fang.gewaesser, fang.koeder].filter(Boolean).map(maskiereHtml).join(" · ");
+        return `
+          <li class="angeltag-zeile mit-thumb">
+            ${thumb}
+            <span><b>${maskiereHtml(fang.fischart)}</b><small>${meta || "&nbsp;"}</small></span>
+            <span class="angeltag-zeile-wert">${fang.laenge ? `${maskiereHtml(fang.laenge)} cm` : ""}</span>
+          </li>`;
+      }).join("");
+
+      const inhalt = document.getElementById("angeltag-detail-inhalt");
+      inhalt.innerHTML = `
+        <div class="formular-abschnitt">
+          <h3 class="formular-abschnitt-titel">${eintrag.istFangtag ? "Tag mit Fang" : "Tag ohne Fang"}</h3>
+          <div class="angeltag-detail-werte">${werte}</div>
+          <div class="angeltag-detail-knoepfe">
+            <button type="button" onclick="bearbeiteAngeltag('${tag.id}')">${ICONS.bearbeiten} Bearbeiten</button>
+            <button type="button" class="angeltag-loeschen-btn" onclick="loescheAngeltag('${tag.id}')">${ICONS.loeschen} Löschen</button>
+          </div>
+        </div>
+        <div class="formular-abschnitt">
+          <h3 class="formular-abschnitt-titel">${eintrag.anzahl === 0 ? "Keine Fänge" : `${eintrag.anzahl} ${eintrag.anzahl === 1 ? "Fang" : "Fänge"}`}</h3>
+          ${eintrag.anzahl === 0
+            ? `<p class="sicherung-text">An diesem Tag ist kein Fang eingetragen.</p>`
+            : `<ul class="angeltag-zeilen" style="margin-top: 10px">${fangZeilen}</ul>`}
+        </div>`;
+
+      // Fotos nachträglich per src setzen (nicht als Base64 im HTML-String)
+      inhalt.querySelectorAll("img[data-fang-id]").forEach(bild => {
+        const fang = eintrag.faenge.find(f => String(f.id) === bild.dataset.fangId);
+        if (fang) {
+          bild.src = fang.foto;
+        }
+      });
+
+      if (!document.getElementById("angeltag-detail-seite").classList.contains("offen")) {
+        oeffneVollbildSeite("angeltag-detail-seite");
+      }
+    }
+
+    function schliesseAngeltagDetail() {
+      schliesseVollbildSeite("angeltag-detail-seite");
+    }
+
+    // Löschen: die Fänge des Tages bleiben unangetastet. Ein Tag mit Fängen
+    // taucht beim nächsten Fang-Speichern bzw. App-Start automatisch wieder auf.
+    function loescheAngeltag(id) {
+      const tag = angeltage.find(eintrag => eintrag.id === id);
+      if (!tag) {
+        return;
+      }
+      const hatFaenge = faenge.some(fang => fang.datum === tag.datum);
+      if (!confirm(`Angeltag ${formatiereAngeltagDatum(tag.datum)} löschen?${hatFaenge ? "\n\nDie Fänge dieses Tages bleiben erhalten." : ""}`)) {
+        return;
+      }
+      const neueAngeltage = angeltage.filter(eintrag => eintrag.id !== id);
+      if (!speichereAngeltage(neueAngeltage)) {
+        return;
+      }
+      angeltage = neueAngeltage;
+      schliesseAngeltagDetail();
+      aktualisiereAngeltagAnzeigen();
+    }
+
+    // ===========================================================
+    // DATEN & SICHERUNG (Export/Import, Speicheranzeige) + UPDATE-ERKENNUNG
+    // ===========================================================
+    // Bei JEDER Änderung an der App erhöhen - zusammen mit dem
+    // <meta name="app-version"> im <head>, sonst erkennt pruefeAufUpdate()
+    // die neue Version nicht.
+    const APP_VERSION = "2026.10.29-1";
+
+    const LETZTE_SICHERUNG_SCHLUESSEL = "fangLogbuchLetzteSicherung";          // Zeitstempel (ms)
+    const SICHERUNG_HINWEIS_WEG_SCHLUESSEL = "fangLogbuchSicherungHinweisWeg"; // Zeitstempel (ms)
+    const SICHERUNG_ERINNERUNG_TAGE = 14;   // ab so alter Sicherung erinnern
+    const SICHERUNG_HINWEIS_PAUSE_TAGE = 3; // so lange bleibt ein weggetippter Hinweis weg
+    const SICHERUNG_FORMAT = "catchlog-sicherung";
+    const LOCALSTORAGE_GRENZE_BYTES = 5 * 1024 * 1024; // grobe Obergrenze der meisten Browser
+
+    // Fotos werden beim Start asynchron aus IndexedDB nachgeladen (ladeFotosNach()).
+    // Der Export wartet darauf, sonst fehlten in einer ganz frühen Sicherung die Fotos.
+    let fotosNachladenVersprechen = Promise.resolve();
+    let fotosSindNachgeladen = false;
+
+    // localStorage-Zugriffe für die kleinen Zusatzwerte - werfen nie
+    function leseZahlAusSpeicher(schluessel) {
+      try {
+        const wert = Number(localStorage.getItem(schluessel));
+        return wert > 0 ? wert : null;
+      } catch (fehler) {
+        return null;
+      }
+    }
+    function schreibeZahlInSpeicher(schluessel, wert) {
+      try {
+        localStorage.setItem(schluessel, String(wert));
+      } catch (fehler) {
+        // Speicher voll/gesperrt: dann eben ohne diesen Zusatzwert
+      }
+    }
+
+    // Ganze Kalendertage zwischen einem Zeitstempel und heute (Ortszeit;
+    // Math.round gleicht die Sommer-/Winterzeit-Stunde aus)
+    function tageSeit(zeitstempel) {
+      const damals = new Date(zeitstempel);
+      damals.setHours(0, 0, 0, 0);
+      const heute = new Date();
+      heute.setHours(0, 0, 0, 0);
+      return Math.round((heute - damals) / 86400000);
+    }
+
+    function tageSeitText(tage) {
+      if (tage <= 0) return "heute";
+      if (tage === 1) return "gestern";
+      return `vor ${tage} Tagen`;
+    }
+
+    // Zahl im deutschen Format, z. B. 2,1
+    function formatiereDezimal(zahl, stellen = 1) {
+      return zahl.toLocaleString("de-DE", { maximumFractionDigits: stellen, minimumFractionDigits: 0 });
+    }
+
+    function formatiereBytes(bytes) {
+      if (bytes < 100 * 1024) {
+        return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+      }
+      return `${formatiereDezimal(bytes / 1024 / 1024)} MB`;
+    }
+
+    function setzeStatus(elementId, text, istFehler = false) {
+      const element = document.getElementById(elementId);
+      element.textContent = text;
+      element.classList.toggle("fehler", istFehler);
+    }
+
+    // ---------- Seite öffnen/schließen (gleiche Mechanik wie die Formular-Seite) ----------
+    function oeffneSicherungSeite() {
+      const seite = document.getElementById("sicherung-seite");
+      seite.scrollTop = 0;
+      setzeStatus("sicherung-export-status", "");
+      setzeStatus("sicherung-import-status", "");
+      setzeStatus("update-status", "");
+      aktualisiereSicherungSeite();
+      seite.classList.add("offen");
+      document.body.classList.add("formular-offen");
+    }
+
+    function schliesseSicherungSeite() {
+      document.getElementById("sicherung-seite").classList.remove("offen");
+      // Scroll-Sperre nur lösen, wenn nicht gleichzeitig das Formular offen ist
+      if (!document.getElementById("formular-seite").classList.contains("offen")) {
+        document.body.classList.remove("formular-offen");
+      }
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && document.getElementById("sicherung-seite").classList.contains("offen")) {
+        schliesseSicherungSeite();
+      }
+    });
+
+    // Befüllt alle Anzeigen der Seite (letzte Sicherung, Speicher, Version)
+    function aktualisiereSicherungSeite() {
+      const letzte = leseZahlAusSpeicher(LETZTE_SICHERUNG_SCHLUESSEL);
+      document.getElementById("sicherung-letzte").textContent = letzte
+        ? `Letzte Sicherung: ${tageSeitText(tageSeit(letzte))} (${new Date(letzte).toLocaleDateString("de-DE")})`
+        : "Letzte Sicherung: noch nie";
+      document.getElementById("app-version-text").textContent = `Version ${APP_VERSION}`;
+      aktualisiereSpeicherAnzeige();
+      aktualisiereKontoBereich();
+    }
+
+    // ---------- Speicheranzeige ----------
+    // Zählt alle localStorage-Einträge dieser Seite (Schlüssel + Wert). Die
+    // Browser rechnen ihr ~5-MB-Limit in Zeichen, das passt als Näherung.
+    function belegterLocalStorage() {
+      let zeichen = 0;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const schluessel = localStorage.key(i);
+          zeichen += schluessel.length + (localStorage.getItem(schluessel) || "").length;
+        }
+      } catch (fehler) {
+        return 0;
+      }
+      return zeichen;
+    }
+
+    async function aktualisiereSpeicherAnzeige() {
+      const belegt = belegterLocalStorage();
+      const anteil = Math.min(1, belegt / LOCALSTORAGE_GRENZE_BYTES);
+      const fuellung = document.getElementById("speicher-balken-fuellung");
+      fuellung.style.width = `${Math.max(anteil * 100, belegt > 0 ? 1 : 0)}%`;
+      fuellung.classList.toggle("knapp", anteil >= 0.8);
+      document.getElementById("speicher-text").textContent =
+        `Fang-Daten: ${formatiereBytes(belegt)} von etwa 5 MB (${Math.round(anteil * 100)} %)`;
+
+      // Fotos liegen in IndexedDB (eigener, viel größerer Speicher) - nur als Info
+      const fotoText = document.getElementById("speicher-fotos-text");
+      fotoText.textContent = "";
+      try {
+        if (navigator.storage && navigator.storage.estimate) {
+          const { usage } = await navigator.storage.estimate();
+          if (usage != null) {
+            fotoText.textContent = `Fotos und übrige App-Daten: ca. ${formatiereBytes(usage)} (eigener, größerer Speicher)`;
+          }
+        }
+      } catch (fehler) {
+        // keine Schätzung möglich - Zeile bleibt leer
+      }
+    }
+
+    // ---------- Export ----------
+    // Baut die Sicherungsdatei: kleiner Kopf + alle Fänge inklusive Fotos
+    // (faenge[i].foto enthält im Arbeitsspeicher die Data-URL aus IndexedDB).
+    function baueSicherungsDatei() {
+      const inhalt = {
+        app: "Catch Log",
+        format: SICHERUNG_FORMAT,
+        formatVersion: 1,
+        appVersion: APP_VERSION,
+        exportiertAm: new Date().toISOString(),
+        anzahlFaenge: faenge.length,
+        anzahlAngeltage: angeltage.length,
+        faenge: faenge,
+        angeltage: angeltage,
+        angeltageEinstellungen: angeltagEinstellungen
+      };
+      const name = `catchlog-sicherung-${heutigesDatumIso()}.json`;
+      return { name, json: JSON.stringify(inhalt) };
+    }
+
+    // Teilen-Menü nur auf Touch-Geräten (Handy/Tablet) - am Desktop ist der
+    // normale Download praktischer. Manche Browser (v. a. Android) teilen kein
+    // application/json, darum ersatzweise als text/plain mit gleicher Endung.
+    function teilbareSicherungsDatei(name, json) {
+      if (!navigator.canShare || !window.matchMedia("(pointer: coarse)").matches) {
+        return null;
+      }
+      for (const typ of ["application/json", "text/plain"]) {
+        try {
+          const datei = new File([json], name, { type: typ });
+          if (navigator.canShare({ files: [datei] })) {
+            return datei;
+          }
+        } catch (fehler) {
+          // nächsten Typ versuchen
+        }
+      }
+      return null;
+    }
+
+    function ladeDateiHerunter(name, json) {
+      const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }
+
+    async function exportiereFaenge() {
+      if (faenge.length === 0 && angeltage.length === 0) {
+        setzeStatus("sicherung-export-status", "Noch keine Fänge vorhanden - es gibt nichts zu sichern.");
+        return;
+      }
+      // Fotos fertig nachgeladen? (dauert nur Sekundenbruchteile nach dem Start)
+      if (!fotosSindNachgeladen) {
+        await fotosNachladenVersprechen;
+      }
+
+      const { name, json } = baueSicherungsDatei();
+      const teilDatei = teilbareSicherungsDatei(name, json);
+
+      if (teilDatei) {
+        try {
+          await navigator.share({ files: [teilDatei], title: "Catch Log Sicherung" });
+        } catch (fehler) {
+          if (fehler && fehler.name === "AbortError") {
+            setzeStatus("sicherung-export-status", "Sicherung abgebrochen.");
+            return; // Nutzer hat das Teilen-Menü geschlossen - nicht als gesichert merken
+          }
+          ladeDateiHerunter(name, json); // Teilen klappt nicht -> normaler Download
+        }
+      } else {
+        ladeDateiHerunter(name, json);
+      }
+
+      schreibeZahlInSpeicher(LETZTE_SICHERUNG_SCHLUESSEL, Date.now());
+      const anzahlFotos = faenge.filter(fang => fang.foto).length;
+      setzeStatus("sicherung-export-status",
+        `Sicherung „${name}“ mit ${faenge.length} ${faenge.length === 1 ? "Fang" : "Fängen"} (${anzahlFotos} ${anzahlFotos === 1 ? "Foto" : "Fotos"}) `
+        + `und ${angeltage.length} ${angeltage.length === 1 ? "Angeltag" : "Angeltagen"} erstellt.`);
+      aktualisiereSicherungSeite();
+      aktualisiereSicherungsHinweis();
+    }
+
+    // ---------- Erinnerung in der Übersicht ----------
+    function aktualisiereSicherungsHinweis() {
+      const hinweis = document.getElementById("sicherung-hinweis");
+      const letzte = leseZahlAusSpeicher(LETZTE_SICHERUNG_SCHLUESSEL);
+      const weggetippt = leseZahlAusSpeicher(SICHERUNG_HINWEIS_WEG_SCHLUESSEL);
+      const faellig = !letzte || tageSeit(letzte) > SICHERUNG_ERINNERUNG_TAGE;
+      const pausiert = weggetippt && tageSeit(weggetippt) < SICHERUNG_HINWEIS_PAUSE_TAGE;
+
+      // Ohne Fänge gibt es nichts zu sichern
+      if (faenge.length === 0 || !faellig || pausiert) {
+        hinweis.hidden = true;
+        return;
+      }
+      document.getElementById("sicherung-hinweis-text").textContent = letzte
+        ? `Deine letzte Sicherung ist ${tageSeit(letzte)} Tage her.`
+        : "Deine Fänge sind noch nicht gesichert.";
+      hinweis.hidden = false;
+    }
+
+    function blendeSicherungsHinweisAus() {
+      schreibeZahlInSpeicher(SICHERUNG_HINWEIS_WEG_SCHLUESSEL, Date.now());
+      document.getElementById("sicherung-hinweis").hidden = true;
+    }
+
+    // ---------- Import ----------
+    function waehleSicherungsDatei() {
+      const eingabe = document.getElementById("sicherung-import-input");
+      eingabe.value = ""; // dieselbe Datei soll erneut gewählt werden können
+      eingabe.click();
+    }
+
+    document.getElementById("sicherung-import-input").addEventListener("change", function () {
+      if (this.files[0]) {
+        importiereSicherung(this.files[0]);
+      }
+    });
+
+    // Prüft einen einzelnen Eintrag aus der Datei und gibt ihn bereinigt
+    // zurück (oder null, wenn er unbrauchbar ist). Die ID landet später in
+    // onclick="bearbeiteFang('…')" - deshalb nur harmlose Zeichen zulassen.
+    function bereinigeImportFang(eintrag) {
+      if (!eintrag || typeof eintrag !== "object" || Array.isArray(eintrag)) {
+        return null;
+      }
+      const id = String(eintrag.id ?? "");
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) {
+        return null;
+      }
+      if (typeof eintrag.fischart !== "string" || !eintrag.fischart.trim()) {
+        return null;
+      }
+      if (typeof eintrag.datum !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(eintrag.datum)) {
+        return null;
+      }
+      const fang = ergaenzeFehlendeFelder({ ...eintrag, id });
+      // Foto nur übernehmen, wenn es wirklich ein eingebettetes Bild ist
+      if (typeof fang.foto !== "string" || !fang.foto.startsWith("data:image/")) {
+        fang.foto = null;
+      }
+      // Daten aus Dateien bzw. vom Server: Zahlenfelder müssen echte Zahlen
+      // sein, Textfelder echte Texte - manche Anzeigen setzen Zahlen ohne
+      // Maskierung ins HTML, ein Text an dieser Stelle wäre ein Einfallstor.
+      ["standortLat", "standortLng", "windGeschwindigkeit", "windRichtung", "bewoelkung", "luftdruck",
+        "niederschlag", "niederschlagswahrscheinlichkeit", "uvIndex"].forEach(feld => {
+        const zahl = fang[feld] === null || fang[feld] === "" ? NaN : Number(fang[feld]);
+        fang[feld] = Number.isFinite(zahl) ? zahl : null;
+      });
+      ["gewaesser", "laenge", "koeder", "notizen", "methode", "uhrzeit", "wetter", "besonderheiten",
+        "sonnenaufgang", "sonnenuntergang", "geaendertAm"].forEach(feld => {
+        fang[feld] = typeof fang[feld] === "string" || typeof fang[feld] === "number" ? String(fang[feld]) : "";
+      });
+      fang.standortName = typeof fang.standortName === "string" ? fang.standortName : null;
+      if (!["steigend", "fallend", "stabil"].includes(fang.luftdruckTrend)) {
+        fang.luftdruckTrend = "";
+      }
+      fang.geloescht = false;
+      return fang;
+    }
+
+    async function importiereSicherung(datei) {
+      setzeStatus("sicherung-import-status", "Sicherung wird geprüft …");
+
+      // 1. Datei lesen und prüfen - vorher wird NICHTS verändert
+      let daten;
+      try {
+        daten = JSON.parse(await datei.text());
+      } catch (fehler) {
+        setzeStatus("sicherung-import-status", "Diese Datei ist keine gültige Sicherung (kein lesbares JSON).", true);
+        return;
+      }
+      // Erwartet: unsere Sicherung { format, faenge: [...] } - ein reines
+      // Array (Rohinhalt von fangLogbuchEintraege) wird auch akzeptiert.
+      const istObjekt = daten && typeof daten === "object" && !Array.isArray(daten);
+      const liste = Array.isArray(daten)
+        ? daten
+        : (istObjekt && Array.isArray(daten.faenge) ? daten.faenge : null);
+      // Angeltage gibt es erst in neueren Sicherungen - fehlen sie, ist das in Ordnung
+      const tagListe = istObjekt && Array.isArray(daten.angeltage) ? daten.angeltage : [];
+      if (!liste) {
+        setzeStatus("sicherung-import-status", "Diese Datei enthält keine Fänge aus Catch Log.", true);
+        return;
+      }
+
+      const gueltige = liste.map(bereinigeImportFang).filter(Boolean);
+      const gueltigeTage = tagListe.map(bereinigeImportAngeltag).filter(Boolean);
+      const ungueltig = liste.length - gueltige.length + tagListe.length - gueltigeTage.length;
+      if (gueltige.length === 0 && gueltigeTage.length === 0) {
+        setzeStatus("sicherung-import-status", liste.length === 0 && tagListe.length === 0
+          ? "Die Sicherung ist leer."
+          : "In der Datei wurden keine gültigen Fänge gefunden.", true);
+        return;
+      }
+
+      // 2. Zusammenführen: vorhandene Fänge bleiben, bekannte IDs werden übersprungen
+      const bekannteIds = new Set(faenge.map(fang => String(fang.id)));
+      const neue = [];
+      let schonVorhanden = 0;
+      gueltige.forEach(fang => {
+        if (bekannteIds.has(fang.id)) {
+          schonVorhanden++;
+        } else {
+          bekannteIds.add(fang.id); // auch Doppelte innerhalb der Datei abfangen
+          neue.push(fang);
+        }
+      });
+
+      // Angeltage genauso - zusätzlich höchstens einer pro Datum
+      const bekannteTagIds = new Set(angeltage.map(tag => tag.id));
+      const belegteDaten = new Set(angeltage.map(tag => tag.datum));
+      const neueTage = gueltigeTage.filter(tag => {
+        if (bekannteTagIds.has(tag.id) || belegteDaten.has(tag.datum)) {
+          return false;
+        }
+        bekannteTagIds.add(tag.id);
+        belegteDaten.add(tag.datum);
+        return true;
+      });
+
+      const zusatz = ungueltig > 0
+        ? ` ${ungueltig} ${ungueltig === 1 ? "unlesbarer Eintrag wurde" : "unlesbare Einträge wurden"} ignoriert.`
+        : "";
+      if (neue.length === 0 && neueTage.length === 0) {
+        setzeStatus("sicherung-import-status", `Keine neuen Fänge - alle ${schonVorhanden} waren schon vorhanden.${zusatz}`);
+        return;
+      }
+
+      // 3. Speichern wie überall: erst neue Liste bauen, nur bei Erfolg übernehmen
+      if (neue.length > 0) {
+        const neueFaenge = [...faenge, ...neue];
+        if (!(await speichereFaenge(neueFaenge))) {
+          setzeStatus("sicherung-import-status", "Laden fehlgeschlagen - es wurde nichts verändert.", true);
+          return;
+        }
+        faenge = neueFaenge;
+      }
+      let tageText = "";
+      if (neueTage.length > 0) {
+        const neueAngeltage = [...angeltage, ...neueTage];
+        if (speichereAngeltage(neueAngeltage)) {
+          angeltage = neueAngeltage;
+          tageText = ` ${neueTage.length} ${neueTage.length === 1 ? "Angeltag" : "Angeltage"} geladen.`;
+        } else {
+          tageText = " Die Angeltage konnten nicht gespeichert werden.";
+        }
+      }
+      // Einstellungen (Jahresziel) nur übernehmen, wenn hier noch keine gespeichert sind
+      if (istObjekt && daten.angeltageEinstellungen && typeof daten.angeltageEinstellungen === "object"
+          && localStorage.getItem(ANGELTAGE_EINSTELLUNGEN_SCHLUESSEL) === null) {
+        const ziel = Math.round(Number(daten.angeltageEinstellungen.jahresziel));
+        if (ziel >= 1 && ziel <= 366 && speichereAngeltagEinstellungen({ ...angeltagEinstellungen, jahresziel: ziel })) {
+          angeltagEinstellungen = ladeAngeltagEinstellungen();
+        }
+      }
+      synchronisiereAngeltage(); // Angeltage für importierte Fänge ohne eigenen Tag ergänzen
+      aktualisiereAlleAnsichten();
+      aktualisiereSicherungSeite();
+
+      const vorhandenText = schonVorhanden > 0
+        ? `, ${schonVorhanden} ${schonVorhanden === 1 ? "war" : "waren"} schon vorhanden`
+        : "";
+      setzeStatus("sicherung-import-status",
+        `${neue.length} ${neue.length === 1 ? "Fang" : "Fänge"} geladen${vorhandenText}.${tageText}${zusatz}`);
+    }
+
+    // Prüft einen Angeltag aus der Datei (gleiche Regeln wie bei Fängen:
+    // ID nur harmlose Zeichen, gültiges ISO-Datum) und ergänzt fehlende Felder.
+    function bereinigeImportAngeltag(eintrag) {
+      if (!eintrag || typeof eintrag !== "object" || Array.isArray(eintrag)) {
+        return null;
+      }
+      const id = String(eintrag.id ?? "");
+      if (!/^[A-Za-z0-9_-]{1,64}$/.test(id) || typeof eintrag.datum !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(eintrag.datum)) {
+        return null;
+      }
+      const tag = ergaenzeFehlendeAngeltagFelder({ ...eintrag, id });
+      ["startzeit", "endzeit", "gewaesser", "notizen", "geaendertAm"].forEach(feld => {
+        tag[feld] = typeof tag[feld] === "string" ? tag[feld] : "";
+      });
+      tag.quelle = tag.quelle === "auto" ? "auto" : "manuell";
+      tag.geloescht = false;
+      return tag;
+    }
+
+    // ---------- Update-Erkennung ----------
+    // Holt die aktuelle index.html vom Server (am Browser-Cache vorbei), liest
+    // das <meta name="app-version"> und vergleicht es mit APP_VERSION.
+    // Ergebnis: "neu" | "aktuell" | "fehler" (offline/kein Server/file://)
+    let neueAppVersion = null;
+    let updatePruefungLaeuft = null;
+
+    function pruefeAufUpdate() {
+      if (!updatePruefungLaeuft) {
+        updatePruefungLaeuft = (async () => {
+          if (location.protocol === "file:") {
+            return "fehler";
+          }
+          try {
+            const zufall = Date.now().toString(36) + Math.random().toString(36).slice(2);
+            const antwort = await fetch(`${location.pathname}?update-check=${zufall}`, { cache: "no-store" });
+            if (!antwort.ok) {
+              return "fehler";
+            }
+            const html = await antwort.text();
+            const treffer = html.match(/<meta\s+name=["']app-version["']\s+content=["']([^"']+)["']/i);
+            if (!treffer) {
+              return "fehler";
+            }
+            if (treffer[1] !== APP_VERSION) {
+              neueAppVersion = treffer[1];
+              document.getElementById("update-karte").hidden = false;
+              return "neu";
+            }
+            return "aktuell";
+          } catch (fehler) {
+            return "fehler"; // offline - still bleiben
+          }
+        })().finally(() => { updatePruefungLaeuft = null; });
+      }
+      return updatePruefungLaeuft;
+    }
+
+    async function sucheUpdateManuell() {
+      setzeStatus("update-status", "Suche nach Updates …");
+      const ergebnis = await pruefeAufUpdate();
+      if (ergebnis === "neu") {
+        setzeStatus("update-status", `Version ${neueAppVersion} ist verfügbar - tippe unten auf „Jetzt aktualisieren“.`);
+      } else if (ergebnis === "aktuell") {
+        setzeStatus("update-status", "Du hast die neueste Version.");
+      } else {
+        setzeStatus("update-status", "Keine Verbindung zum Server - bitte später noch einmal versuchen.", true);
+      }
+    }
+
+    // Neu laden mit frischem Query-Parameter, damit kein Zwischenspeicher die
+    // alte Version liefert. Adresse (Origin) und Speicherschlüssel bleiben
+    // gleich - die Fänge sind danach also unverändert da.
+    function aktualisiereApp() {
+      if (neueAppVersion) {
+        location.replace(location.pathname + "?v=" + encodeURIComponent(neueAppVersion));
+      }
+    }
+
+    // Jedes Mal prüfen, wenn die App wieder in den Vordergrund kommt
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") {
+        pruefeAufUpdate();
+      }
+    });
+
+    // ===========================================================
+    // SYNCHRONISATION MIT SUPABASE (Etappe 1: Fänge, Angeltage, Einstellungen)
+    // ===========================================================
+    // GRUNDPRINZIP "LOKAL ZUERST":
+    // Die App liest und schreibt immer zuerst lokal (localStorage/IndexedDB,
+    // genau wie ohne Konto). Der Server ist die zweite Kopie und die Brücke
+    // zu anderen Geräten. Nichts wartet beim Start auf das Netz.
+    //
+    // WIE ÄNDERUNGEN ZUM SERVER KOMMEN (Warteschlange):
+    // speichereFaenge()/speichereAngeltage() vergleichen alte und neue Liste
+    // (stempleAenderungen()). Jeder geänderte/neue Eintrag bekommt
+    // geaendertAm = jetzt und landet in syncZustand.warteschlange. Gelöschte
+    // Einträge verschwinden sofort aus der Anzeige, hinterlassen aber einen
+    // "Grabstein" (syncZustand.geloescht: id -> Löschzeitpunkt). Erst wenn der
+    // Server Eintrag bzw. Grabstein bestätigt hat, wird er aus der
+    // Warteschlange genommen (= Soft Delete: auf dem Server bleibt die Zeile
+    // mit geloescht = true stehen, damit auch andere Geräte das Löschen sehen).
+    //
+    // ABGLEICH (synchronisiere()): 1. HOLEN - alle Serverzeilen, die seit dem
+    // letzten Abruf geändert wurden (Zeitstempel aktualisiert_am vom SERVER,
+    // nicht die Handy-Uhr), 2. ZUSAMMENFÜHREN nach "neuester gewinnt"
+    // (geaendertAm), 3. SENDEN der Warteschlange per upsert (gleiche id =
+    // gleiche Zeile, deshalb nie Duplikate, egal wie oft es läuft).
+    // Fehler (offline, Zeitüberschreitung, Server pausiert) kosten nie Daten:
+    // die Warteschlange bleibt einfach stehen und wird später erneut gesendet.
+    // Fotos bleiben in Etappe 1 nur lokal (daten.foto ist auf dem Server null).
+    const SYNC_KONTO_SCHLUESSEL = "catchlogKonto";          // { userId, email } - nur Anzeige/Zustand, kein Token
+    const SYNC_OHNE_KONTO_SCHLUESSEL = "catchlogOhneKonto"; // "1" = Anmeldeseite nicht mehr automatisch zeigen
+    const SYNC_ZUSTAND_SCHLUESSEL = "catchlogSyncZustand";  // Warteschlange, Grabsteine, Abrufzeitpunkte
+    const SYNC_SEITENGROESSE = 500;      // Zeilen pro Abruf-Seite
+    const SYNC_PAKETGROESSE = 200;       // Zeilen pro upsert
+    const SYNC_UEBERLAPPUNG_MS = 5000;   // Sicherheitsabstand beim Abruf (siehe holeGeaenderteZeilen())
+    const SYNC_VERZOEGERUNG_MS = 1500;   // nach dem Speichern kurz warten, mehrere Änderungen bündeln
+    const SYNC_WIEDERHOLUNG_MS = 60000;  // nach einem Fehler später erneut versuchen
+
+    function leererSyncZustand(userId) {
+      return {
+        userId: userId || null,
+        warteschlange: { fange: {}, angeltage: {}, einstellungen: false }, // id -> true
+        geloescht: { fange: {}, angeltage: {} },                           // id -> Löschzeitpunkt (ISO)
+        letzterAbruf: { fange: null, angeltage: null },                    // aktualisiert_am vom Server
+        letzteSync: null,
+        uebernahme: {} // pro Nutzer: "offen" | "erledigt" | "abgelehnt" (erste Übernahme der lokalen Daten)
+      };
+    }
+
+    function ladeSyncZustand() {
+      const leer = leererSyncZustand(null);
+      try {
+        const gespeichert = JSON.parse(localStorage.getItem(SYNC_ZUSTAND_SCHLUESSEL) || "null");
+        if (!gespeichert || typeof gespeichert !== "object") {
+          return leer;
+        }
+        return {
+          ...leer,
+          ...gespeichert,
+          warteschlange: { ...leer.warteschlange, ...gespeichert.warteschlange },
+          geloescht: { ...leer.geloescht, ...gespeichert.geloescht },
+          letzterAbruf: { ...leer.letzterAbruf, ...gespeichert.letzterAbruf },
+          uebernahme: { ...gespeichert.uebernahme }
+        };
+      } catch (fehler) {
+        return leer;
+      }
+    }
+
+    function speichereSyncZustand() {
+      try {
+        localStorage.setItem(SYNC_ZUSTAND_SCHLUESSEL, JSON.stringify(syncZustand));
+      } catch (fehler) {
+        // Speicher voll: Zustand bleibt im Arbeitsspeicher, nächster Versuch beim nächsten Speichern
+      }
+    }
+
+    function ladeSyncKonto() {
+      try {
+        const konto = JSON.parse(localStorage.getItem(SYNC_KONTO_SCHLUESSEL) || "null");
+        return konto && typeof konto.userId === "string" ? konto : null;
+      } catch (fehler) {
+        return null;
+      }
+    }
+
+    let syncZustand = ladeSyncZustand();
+    let syncKonto = ladeSyncKonto(); // null = nicht angemeldet (rein lokal)
+    let syncStatus = "bereit";       // "bereit" | "sendet" | "synchronisiert" | "offline" | "fehler" | "anmeldung" | "uebernahme"
+    let syncLaeuft = false;
+    let syncErneut = false;          // während eines Laufs kam eine neue Änderung -> danach gleich noch einmal
+    let syncTimer = null;
+    let abmeldungLaeuft = false;
+
+    // ---------- Änderungen erkennen und vormerken ----------
+    // Vergleichstext eines Eintrags ohne Foto und ohne Zeitstempel (Schlüssel
+    // sortiert, damit die Reihenfolge der Felder keine Rolle spielt)
+    function vergleichsText(eintrag) {
+      return JSON.stringify(Object.keys(eintrag).sort()
+        .filter(schluessel => schluessel !== "foto" && schluessel !== "geaendertAm")
+        .map(schluessel => [schluessel, eintrag[schluessel]]));
+    }
+
+    // Setzt geaendertAm bei neuen/geänderten Einträgen der neuen Liste und
+    // liefert, welche IDs geändert bzw. entfernt wurden. Neue Einträge, die
+    // schon einen Zeitstempel mitbringen (z. B. aus einer Sicherung), behalten ihn.
+    function stempleAenderungen(alteListe, neueListe) {
+      const jetzt = new Date().toISOString();
+      const alt = new Map(alteListe.map(eintrag => [String(eintrag.id), eintrag]));
+      const geaendert = [];
+      neueListe.forEach(eintrag => {
+        const id = String(eintrag.id);
+        const vorher = alt.get(id);
+        if (!vorher) {
+          if (!eintrag.geaendertAm) {
+            eintrag.geaendertAm = jetzt;
+          }
+          geaendert.push(id);
+        } else if (vorher !== eintrag
+            && (vergleichsText(vorher) !== vergleichsText(eintrag) || (vorher.foto || null) !== (eintrag.foto || null))) {
+          eintrag.geaendertAm = jetzt;
+          geaendert.push(id);
+        }
+        alt.delete(id);
+      });
+      return { geaendert, entfernt: [...alt.keys()], zeit: jetzt };
+    }
+
+    // Trägt Änderungen in die Warteschlange ein (nur mit Konto) und plant
+    // einen Abgleich in ~1,5 s - mehrere schnelle Änderungen werden gebündelt.
+    function merkeLokaleAenderungen(tabelle, { geaendert, entfernt, zeit }) {
+      if (!syncKonto || (geaendert.length === 0 && entfernt.length === 0)) {
+        return;
+      }
+      geaendert.forEach(id => {
+        syncZustand.warteschlange[tabelle][id] = true;
+        delete syncZustand.geloescht[tabelle][id]; // wieder angelegt -> kein Grabstein mehr
+      });
+      entfernt.forEach(id => {
+        syncZustand.geloescht[tabelle][id] = zeit;
+        delete syncZustand.warteschlange[tabelle][id];
+      });
+      speichereSyncZustand();
+      aktualisiereSyncAnzeige();
+      planeSync();
+    }
+
+    function merkeEinstellungenAenderung() {
+      if (!syncKonto) {
+        return;
+      }
+      syncZustand.warteschlange.einstellungen = true;
+      speichereSyncZustand();
+      aktualisiereSyncAnzeige();
+      planeSync();
+    }
+
+    function anzahlWartend() {
+      const z = syncZustand;
+      return Object.keys(z.warteschlange.fange).length + Object.keys(z.warteschlange.angeltage).length
+        + Object.keys(z.geloescht.fange).length + Object.keys(z.geloescht.angeltage).length
+        + (z.warteschlange.einstellungen ? 1 : 0);
+    }
+
+    function uebernahmeStatus() {
+      return syncKonto ? (syncZustand.uebernahme[syncKonto.userId] || "offen") : null;
+    }
+
+    // ---------- Supabase-Bibliothek erst bei Bedarf laden ----------
+    // Bewusst kein <script> im <head>: ohne Netz würde das den Start
+    // verzögern. Die Bibliothek speichert und erneuert die Sitzung selbst.
+    let supabaseClient = null;
+    let supabaseLadeVersprechen = null;
+
+    // fetch mit Zeitlimit (20 s), damit ein hängender Server nichts blockiert
+    function fetchMitZeitlimit(adresse, optionen = {}) {
+      const steuerung = new AbortController();
+      const timer = setTimeout(() => steuerung.abort(), 20000);
+      if (optionen.signal) {
+        optionen.signal.addEventListener("abort", () => steuerung.abort());
+      }
+      return fetch(adresse, { ...optionen, signal: steuerung.signal }).finally(() => clearTimeout(timer));
+    }
+
+    function ladeSupabase() {
+      if (supabaseClient) {
+        return Promise.resolve(supabaseClient);
+      }
+      if (!supabaseLadeVersprechen) {
+        supabaseLadeVersprechen = new Promise((resolve, reject) => {
+          const skript = document.createElement("script");
+          skript.src = SUPABASE_BIBLIOTHEK_URL;
+          skript.async = true;
+          skript.onload = () => {
+            try {
+              supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+                auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
+                global: { fetch: fetchMitZeitlimit }
+              });
+              // Sitzung serverseitig ungültig geworden (nicht durch "Abmelden")?
+              supabaseClient.auth.onAuthStateChange(ereignis => {
+                if (ereignis === "SIGNED_OUT" && syncKonto && !abmeldungLaeuft) {
+                  setzeSyncStatus("anmeldung");
+                }
+              });
+              resolve(supabaseClient);
+            } catch (fehler) {
+              supabaseLadeVersprechen = null;
+              reject(fehler);
+            }
+          };
+          skript.onerror = () => {
+            skript.remove();
+            supabaseLadeVersprechen = null; // beim nächsten Mal neu versuchen
+            reject(new Error("offline: Bibliothek nicht ladbar"));
+          };
+          document.head.appendChild(skript);
+        });
+      }
+      return supabaseLadeVersprechen;
+    }
+
+    function istNetzwerkfehler(fehler) {
+      if (navigator.onLine === false) {
+        return true;
+      }
+      const text = `${fehler && fehler.name} ${fehler && fehler.message}`;
+      return /fetch|network|abort|timeout|load failed|offline|retryable/i.test(text) || (fehler && fehler.status === 0);
+    }
+
+    // Gespeicherte Sitzung holen. Netzfehler (z. B. Token-Erneuerung offline)
+    // werden weitergeworfen - das ist KEINE Abmeldung.
+    async function holeSitzung(client) {
+      const { data, error } = await client.auth.getSession();
+      if (error) {
+        if (istNetzwerkfehler(error)) {
+          throw error;
+        }
+        return null;
+      }
+      return data.session;
+    }
+
+    // ---------- Abgleich ----------
+    function planeSync(verzoegerung = SYNC_VERZOEGERUNG_MS) {
+      if (!syncKonto) {
+        return;
+      }
+      clearTimeout(syncTimer);
+      syncTimer = setTimeout(synchronisiere, verzoegerung);
+    }
+
+    async function synchronisiere() {
+      if (!syncKonto) {
+        return;
+      }
+      if (syncLaeuft) {
+        syncErneut = true;
+        return;
+      }
+      if (uebernahmeStatus() === "offen") {
+        setzeSyncStatus("uebernahme"); // erst nach der Entscheidung "Übertragen"/"Nicht übertragen"
+        return;
+      }
+      if (navigator.onLine === false) {
+        setzeSyncStatus("offline"); // "online"-Event startet den nächsten Versuch
+        return;
+      }
+      syncLaeuft = true;
+      clearTimeout(syncTimer);
+      setzeSyncStatus("sendet");
+      try {
+        const client = await ladeSupabase();
+        const sitzung = await holeSitzung(client);
+        if (!sitzung || sitzung.user.id !== syncKonto.userId) {
+          setzeSyncStatus("anmeldung"); // Warteschlange bleibt erhalten
+          return;
+        }
+        // 1. Holen (immer vor dem Senden, damit nichts Neueres überschrieben wird)
+        const fangAbruf = await holeGeaenderteZeilen(client, "fange");
+        const tagAbruf = await holeGeaenderteZeilen(client, "angeltage");
+        const einstellungenZeile = await holeEinstellungenVomServer(client);
+        // 2. Zusammenführen
+        await wendeServerstandAn(fangAbruf, tagAbruf, einstellungenZeile);
+        // 3. Senden
+        await sendeWarteschlange(client, sitzung.user.id);
+        syncZustand.letzteSync = new Date().toISOString();
+        speichereSyncZustand();
+        setzeSyncStatus("synchronisiert");
+      } catch (fehler) {
+        // Ruhiger Status statt Popup - die Daten bleiben in der Warteschlange
+        setzeSyncStatus(istNetzwerkfehler(fehler) ? "offline" : "fehler");
+        planeSync(SYNC_WIEDERHOLUNG_MS);
+      } finally {
+        syncLaeuft = false;
+        if (syncErneut) {
+          syncErneut = false;
+          planeSync(500);
+        }
+      }
+    }
+
+    // Holt alle Zeilen einer Tabelle, die seit dem letzten Abruf geändert
+    // wurden (beim allerersten Mal alle), seitenweise je 500. Gemerkt wird der
+    // höchste aktualisiert_am-Wert VOM SERVER. Abgefragt wird mit 5 s
+    // Überlappung: ein Schreibvorgang, der gerade parallel lief, könnte sonst
+    // knapp durchrutschen. Doppelt geholte Zeilen schaden nicht (gleicher Stand).
+    // Server-Zeitstempel in ms. Postgres liefert Mikrosekunden
+    // ("…:00.123456+00:00") - auf Millisekunden kürzen, das versteht jeder Browser.
+    function zeitInMs(zeitstempel) {
+      return Date.parse(String(zeitstempel).replace(/(\.\d{3})\d+/, "$1"));
+    }
+
+    async function holeGeaenderteZeilen(client, tabelle) {
+      const seit = syncZustand.letzterAbruf[tabelle];
+      const ab = seit ? new Date(zeitInMs(seit) - SYNC_UEBERLAPPUNG_MS).toISOString() : null;
+      const zeilen = [];
+      let neuester = seit;
+      for (let start = 0; ; start += SYNC_SEITENGROESSE) {
+        let abfrage = client.from(tabelle).select("id, daten, geloescht, aktualisiert_am");
+        if (ab) {
+          abfrage = abfrage.gt("aktualisiert_am", ab);
+        }
+        const { data, error } = await abfrage
+          .order("aktualisiert_am", { ascending: true })
+          .order("id", { ascending: true })
+          .range(start, start + SYNC_SEITENGROESSE - 1);
+        if (error) {
+          throw error;
+        }
+        data.forEach(zeile => {
+          zeilen.push(zeile);
+          if (!neuester || zeitInMs(zeile.aktualisiert_am) > zeitInMs(neuester)) {
+            neuester = zeile.aktualisiert_am;
+          }
+        });
+        if (data.length < SYNC_SEITENGROESSE) {
+          break;
+        }
+      }
+      return { tabelle, zeilen, neuester, vollabruf: !seit };
+    }
+
+    async function holeEinstellungenVomServer(client) {
+      const { data, error } = await client.from("einstellungen").select("daten, aktualisiert_am").maybeSingle();
+      if (error) {
+        throw error;
+      }
+      return data; // null = noch keine Zeile auf dem Server
+    }
+
+    // KONFLIKTREGEL "neuester gewinnt" (Last-write-wins) für eine Tabelle.
+    // Liefert { liste } mit der neuen lokalen Liste oder liste = null, wenn
+    // sich lokal nichts ändert. Server-Daten laufen durch dieselbe Prüfung wie
+    // eine Sicherungsdatei (bereinige...), unbrauchbare Zeilen werden ignoriert.
+    function fuehreZusammen(lokaleListe, abruf, bereinige, darfHochladen) {
+      const warteschlange = syncZustand.warteschlange[abruf.tabelle];
+      const grabsteine = syncZustand.geloescht[abruf.tabelle];
+      const ergebnis = new Map(lokaleListe.map(eintrag => [String(eintrag.id), eintrag]));
+      const aufServer = new Set();
+      let geaendert = false;
+
+      abruf.zeilen.forEach(zeile => {
+        const id = String(zeile.id);
+        aufServer.add(id);
+        const daten = zeile.daten && typeof zeile.daten === "object" ? zeile.daten : {};
+        const serverZeit = typeof daten.geaendertAm === "string" ? daten.geaendertAm : "";
+        const serverEintrag = zeile.geloescht ? null : bereinige({ ...daten, id });
+        if (!zeile.geloescht && !serverEintrag) {
+          return;
+        }
+        const lokal = ergebnis.get(id);
+        const grabZeit = grabsteine[id];
+        const lokalZeit = lokal ? (lokal.geaendertAm || "") : (grabZeit !== undefined ? grabZeit : null);
+        const wartet = Boolean(warteschlange[id]) || grabZeit !== undefined;
+
+        // a) Lokal unbekannt: Serverstand übernehmen (gelöschte Zeilen ignorieren)
+        if (lokalZeit === null) {
+          if (serverEintrag) {
+            ergebnis.set(id, serverEintrag);
+            geaendert = true;
+          }
+          return;
+        }
+        // Sonderfall: ein automatisch angelegter Angeltag ohne eigene Angaben
+        // (Start/Ende/Notiz) gibt immer nach - der Serverstand kann Angaben
+        // von einem anderen Gerät enthalten, die sonst überschrieben würden.
+        const leererAutoTag = abruf.tabelle === "angeltage" && lokal && lokal.quelle === "auto"
+          && !angeltagHatEigeneAngaben(lokal) && serverEintrag;
+        // b) Lokal geändert, noch nicht gesendet und mindestens so neu: lokal gewinnt, wird gleich gesendet
+        if (wartet && lokalZeit >= serverZeit && !leererAutoTag) {
+          return;
+        }
+        // c) Gleicher Stand (z. B. eigene, gerade gesendete Zeile) - nichts zu tun
+        if (!wartet && lokal && serverEintrag && lokalZeit === serverZeit) {
+          return;
+        }
+        // d) Lokal neuer, aber nicht vorgemerkt (z. B. während der Abmeldung geändert)
+        if (!wartet && lokalZeit > serverZeit) {
+          if (darfHochladen) {
+            warteschlange[id] = true;
+          }
+          return;
+        }
+        // e) Server ist neuer: Serverstand übernehmen bzw. Löschung ausführen
+        delete warteschlange[id];
+        delete grabsteine[id];
+        if (serverEintrag) {
+          ergebnis.set(id, { ...serverEintrag, foto: lokal ? lokal.foto : null }); // Fotos bleiben lokal (Etappe 1)
+        } else {
+          ergebnis.delete(id);
+        }
+        geaendert = true;
+      });
+
+      // Beim vollständigen Abruf: lokale Einträge, die der Server gar nicht
+      // kennt, hochladen - aber nur, wenn die Übernahme bestätigt wurde.
+      if (abruf.vollabruf && darfHochladen) {
+        ergebnis.forEach((eintrag, id) => {
+          if (!aufServer.has(id)) {
+            warteschlange[id] = true;
+          }
+        });
+      }
+      return { liste: geaendert ? [...ergebnis.values()] : null };
+    }
+
+    async function wendeServerstandAn(fangAbruf, tagAbruf, einstellungenZeile) {
+      const darfHochladen = uebernahmeStatus() === "erledigt";
+      const fangErgebnis = fuehreZusammen(faenge, fangAbruf, bereinigeImportFang, darfHochladen);
+      const tagErgebnis = fuehreZusammen(angeltage, tagAbruf, bereinigeImportAngeltag, darfHochladen);
+      let geaendert = false;
+
+      // Gleiches Muster wie überall: erst lokal speichern, dann übernehmen
+      if (fangErgebnis.liste) {
+        if (!(await speichereFaenge(fangErgebnis.liste, { vonSync: true }))) {
+          throw new Error("Lokales Speichern fehlgeschlagen");
+        }
+        faenge = fangErgebnis.liste;
+        geaendert = true;
+      }
+      if (tagErgebnis.liste) {
+        if (!speichereAngeltage(tagErgebnis.liste, true, { vonSync: true })) {
+          throw new Error("Lokales Speichern fehlgeschlagen");
+        }
+        angeltage = tagErgebnis.liste;
+        geaendert = true;
+      }
+      // Abrufzeitpunkte erst merken, wenn alles lokal gespeichert ist
+      syncZustand.letzterAbruf.fange = fangAbruf.neuester;
+      syncZustand.letzterAbruf.angeltage = tagAbruf.neuester;
+      speichereSyncZustand();
+
+      if (wendeEinstellungenAn(einstellungenZeile, darfHochladen)) {
+        geaendert = true;
+      }
+      if (geaendert) {
+        bereinigeDoppelteAngeltage();
+        synchronisiereAngeltage(); // z. B. Angeltag für einen Fang von einem anderen Gerät
+        aktualisiereAlleAnsichten();
+      }
+    }
+
+    // Einstellungen (Jahresziel) nach derselben Regel; übernommen werden nur bekannte Felder
+    function wendeEinstellungenAn(zeile, darfHochladen) {
+      const wartet = syncZustand.warteschlange.einstellungen;
+      const lokalZeit = angeltagEinstellungen.geaendertAm || "";
+      if (!zeile) {
+        if (darfHochladen && localStorage.getItem(ANGELTAGE_EINSTELLUNGEN_SCHLUESSEL) !== null) {
+          syncZustand.warteschlange.einstellungen = true;
+        }
+        return false;
+      }
+      const daten = zeile.daten && typeof zeile.daten === "object" ? zeile.daten : {};
+      const serverZeit = typeof daten.geaendertAm === "string" ? daten.geaendertAm : "";
+      if ((wartet && lokalZeit >= serverZeit) || lokalZeit === serverZeit) {
+        return false;
+      }
+      if (!wartet && lokalZeit > serverZeit) {
+        if (darfHochladen) {
+          syncZustand.warteschlange.einstellungen = true;
+        }
+        return false;
+      }
+      const ziel = Math.round(Number(daten.jahresziel));
+      const neu = { ...angeltagEinstellungen, geaendertAm: serverZeit };
+      if (ziel >= 1 && ziel <= 366) {
+        neu.jahresziel = ziel;
+      }
+      if (!speichereAngeltagEinstellungen(neu, { vonSync: true })) {
+        return false;
+      }
+      angeltagEinstellungen = ladeAngeltagEinstellungen();
+      syncZustand.warteschlange.einstellungen = false;
+      speichereSyncZustand();
+      return true;
+    }
+
+    // Zwei Angeltage mit demselben Datum (z. B. auf zwei Geräten offline
+    // angelegt) zu einem zusammenführen: gewinnt der mit eigenen Angaben,
+    // dann der manuelle, dann der neuere; leere Felder füllt der andere auf.
+    // Der Verlierer wird normal gelöscht (Grabstein -> auch auf dem Server).
+    function bereinigeDoppelteAngeltage() {
+      const nachDatum = new Map();
+      angeltage.forEach(tag => {
+        if (!nachDatum.has(tag.datum)) {
+          nachDatum.set(tag.datum, []);
+        }
+        nachDatum.get(tag.datum).push(tag);
+      });
+      const entfernen = new Set();
+      const ersetzen = new Map();
+      nachDatum.forEach(gruppe => {
+        if (gruppe.length < 2) {
+          return;
+        }
+        const sortiert = [...gruppe].sort((a, b) =>
+          Number(angeltagHatEigeneAngaben(b)) - Number(angeltagHatEigeneAngaben(a))
+          || Number(b.quelle === "manuell") - Number(a.quelle === "manuell")
+          || (b.geaendertAm || "").localeCompare(a.geaendertAm || "")
+          || String(a.id).localeCompare(String(b.id)));
+        const gewinner = { ...sortiert[0] };
+        sortiert.slice(1).forEach(verlierer => {
+          ["startzeit", "endzeit", "gewaesser", "notizen"].forEach(feld => {
+            if (!gewinner[feld] && verlierer[feld]) {
+              gewinner[feld] = verlierer[feld];
+            }
+          });
+          entfernen.add(verlierer.id);
+        });
+        ersetzen.set(gewinner.id, gewinner);
+      });
+      if (entfernen.size === 0) {
+        return;
+      }
+      const neu = angeltage.filter(tag => !entfernen.has(tag.id)).map(tag => ersetzen.get(tag.id) || tag);
+      if (speichereAngeltage(neu, true)) {
+        angeltage = neu;
+      }
+    }
+
+    // Sendet Warteschlange + Grabsteine per upsert (Paketen à 200). Ein Eintrag
+    // verlässt die Warteschlange erst nach Bestätigung durch den Server - und
+    // nur, wenn er sich während des Sendens nicht schon wieder geändert hat.
+    async function sendeWarteschlange(client, userId) {
+      for (const tabelle of ["fange", "angeltage"]) {
+        const lokal = new Map((tabelle === "fange" ? faenge : angeltage).map(eintrag => [String(eintrag.id), eintrag]));
+        const ids = [...new Set([...Object.keys(syncZustand.warteschlange[tabelle]), ...Object.keys(syncZustand.geloescht[tabelle])])];
+        const zeilen = [];
+        ids.forEach(id => {
+          const grabZeit = syncZustand.geloescht[tabelle][id];
+          if (grabZeit !== undefined) {
+            zeilen.push({ user_id: userId, id, geloescht: true, daten: { id, geaendertAm: grabZeit, geloescht: true } });
+          } else if (lokal.has(id)) {
+            // Foto bleibt in Etappe 1 lokal - auf den Server nur der Text
+            zeilen.push({ user_id: userId, id, geloescht: false, daten: { ...lokal.get(id), id, foto: null, geloescht: false } });
+          } else {
+            delete syncZustand.warteschlange[tabelle][id]; // gibt es nicht mehr
+          }
+        });
+
+        for (let start = 0; start < zeilen.length; start += SYNC_PAKETGROESSE) {
+          const paket = zeilen.slice(start, start + SYNC_PAKETGROESSE);
+          const { error } = await client.from(tabelle).upsert(paket, { onConflict: "user_id,id" });
+          if (error) {
+            throw error;
+          }
+          const aktuell = new Map((tabelle === "fange" ? faenge : angeltage).map(eintrag => [String(eintrag.id), eintrag]));
+          paket.forEach(zeile => {
+            if (zeile.geloescht) {
+              if (syncZustand.geloescht[tabelle][zeile.id] === zeile.daten.geaendertAm) {
+                delete syncZustand.geloescht[tabelle][zeile.id]; // jetzt erst endgültig weg
+              }
+            } else {
+              const eintrag = aktuell.get(zeile.id);
+              if (!eintrag || (eintrag.geaendertAm || "") === (zeile.daten.geaendertAm || "")) {
+                delete syncZustand.warteschlange[tabelle][zeile.id];
+              }
+            }
+          });
+          speichereSyncZustand();
+        }
+      }
+
+      if (syncZustand.warteschlange.einstellungen) {
+        const daten = { jahresziel: angeltagEinstellungen.jahresziel, geaendertAm: angeltagEinstellungen.geaendertAm || "" };
+        const { error } = await client.from("einstellungen").upsert({ user_id: userId, daten }, { onConflict: "user_id" });
+        if (error) {
+          throw error;
+        }
+        if ((angeltagEinstellungen.geaendertAm || "") === daten.geaendertAm) {
+          syncZustand.warteschlange.einstellungen = false;
+        }
+        speichereSyncZustand();
+      }
+    }
+
+    function synchronisiereJetzt() {
+      if (syncStatus === "anmeldung") {
+        zeigeAnmeldeSeite();
+        return;
+      }
+      if (uebernahmeStatus() === "offen") {
+        zeigeUebernahmeSeite();
+        return;
+      }
+      synchronisiere();
+    }
+
+    // ---------- Statusanzeige (Header-Symbol + Konto-Bereich) ----------
+    function setzeSyncStatus(status) {
+      syncStatus = status;
+      aktualisiereSyncAnzeige();
+    }
+
+    // zustand steuert die Farbe (CSS data-zustand), text ist für Menschen/Screenreader
+    function syncAnzeigeZustand() {
+      if (!syncKonto) {
+        return { zustand: "lokal", text: "Nur auf diesem Gerät (nicht angemeldet)" };
+      }
+      const wartend = anzahlWartend() > 0;
+      switch (syncStatus) {
+        case "sendet":
+          return { zustand: "sendet", text: "Wird gesendet …" };
+        case "anmeldung":
+          return { zustand: "anmeldung", text: "Anmeldung abgelaufen – bitte erneut anmelden" };
+        case "uebernahme":
+          return { zustand: "wartet", text: "Wartet auf deine Entscheidung zur Datenübernahme" };
+        case "fehler":
+          return { zustand: "fehler", text: "Fehler – wird später erneut versucht" };
+        case "offline":
+          return wartend ? { zustand: "wartet", text: "Offline, wird später gesendet" } : { zustand: "offline", text: "Offline" };
+        case "synchronisiert":
+          return wartend ? { zustand: "ausstehend", text: "Änderungen werden gleich gesendet" } : { zustand: "synchronisiert", text: "Synchronisiert" };
+        default:
+          return { zustand: "offline", text: wartend ? "Änderungen werden gleich gesendet" : "Noch nicht synchronisiert" };
+      }
+    }
+
+    function aktualisiereSyncAnzeige() {
+      const { zustand, text } = syncAnzeigeZustand();
+      const knopf = document.getElementById("kopf-sync-btn");
+      knopf.dataset.zustand = zustand;
+      knopf.setAttribute("aria-label", `Synchronisation: ${text}`);
+      knopf.title = text;
+      aktualisiereKontoBereich();
+    }
+
+    function aktualisiereKontoBereich() {
+      document.getElementById("konto-angemeldet").hidden = !syncKonto;
+      document.getElementById("konto-abgemeldet").hidden = Boolean(syncKonto);
+      if (!syncKonto) {
+        return;
+      }
+      const { zustand, text } = syncAnzeigeZustand();
+      document.getElementById("konto-email").textContent = syncKonto.email || "";
+      document.getElementById("konto-sync-status").textContent = text;
+      document.getElementById("konto-sync-punkt").dataset.zustand = zustand;
+      const letzte = syncZustand.letzteSync;
+      document.getElementById("konto-sync-zeit").textContent = letzte
+        ? `Letzte Synchronisation: ${tageSeitText(tageSeit(Date.parse(letzte)))}, ${new Date(letzte).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr`
+        : "Noch nie synchronisiert";
+      const wartend = anzahlWartend();
+      document.getElementById("konto-sync-wartend").textContent = wartend > 0
+        ? `${wartend} ${wartend === 1 ? "Änderung wartet" : "Änderungen warten"} auf das Senden`
+        : "";
+      document.getElementById("konto-sync-btn").lastChild.textContent = syncStatus === "anmeldung" ? " Erneut anmelden" : " Jetzt synchronisieren";
+      document.getElementById("konto-sync-btn").disabled = syncStatus === "sendet";
+      document.getElementById("konto-uebernahme-btn").hidden = uebernahmeStatus() !== "abgelehnt";
+    }
+
+    // ---------- Anmeldeseite ----------
+    function zeigeAnmeldeSeite() {
+      const seite = document.getElementById("anmelde-seite");
+      document.getElementById("anmelde-fehler").hidden = true;
+      if (syncKonto && syncKonto.email) {
+        document.getElementById("anmelde-email").value = syncKonto.email;
+      }
+      seite.hidden = false;
+      seite.scrollTop = 0;
+      document.body.classList.add("formular-offen");
+    }
+
+    function schliesseAnmeldeSeite() {
+      document.getElementById("anmelde-seite").hidden = true;
+      document.getElementById("anmelde-passwort").value = "";
+      if (!document.querySelector(".formular-seite.offen") && document.getElementById("uebernahme-seite").hidden) {
+        document.body.classList.remove("formular-offen");
+      }
+    }
+
+    function weiterOhneKonto() {
+      try {
+        localStorage.setItem(SYNC_OHNE_KONTO_SCHLUESSEL, "1");
+      } catch (fehler) {
+        // nicht schlimm - dann erscheint die Anmeldeseite beim nächsten Start erneut
+      }
+      schliesseAnmeldeSeite();
+    }
+
+    function schaltePasswortSichtbarkeit() {
+      const feld = document.getElementById("anmelde-passwort");
+      const knopf = document.getElementById("passwort-zeigen-btn");
+      const zeigen = feld.type === "password";
+      feld.type = zeigen ? "text" : "password";
+      knopf.setAttribute("aria-pressed", String(zeigen));
+      knopf.setAttribute("aria-label", zeigen ? "Passwort verbergen" : "Passwort anzeigen");
+      knopf.querySelector("span").innerHTML = zeigen ? ICONS.augeZu : ICONS.auge;
+    }
+
+    // Verständliche deutsche Meldungen statt der englischen Server-Texte
+    function uebersetzeAnmeldeFehler(fehler) {
+      const text = `${fehler && fehler.message}`;
+      const status = fehler && fehler.status;
+      if (/invalid login credentials/i.test(text)) {
+        return "E-Mail oder Passwort ist falsch.";
+      }
+      if (/email not confirmed/i.test(text)) {
+        return "Diese E-Mail-Adresse ist noch nicht bestätigt.";
+      }
+      if (status === 429 || /rate limit|too many/i.test(text)) {
+        return "Zu viele Versuche. Bitte warte kurz und versuche es dann erneut.";
+      }
+      if (istNetzwerkfehler(fehler)) {
+        return "Keine Verbindung zum Server. Prüfe dein Internet oder nutze die App erstmal ohne Konto.";
+      }
+      if (status >= 500) {
+        return "Der Server antwortet gerade nicht (vielleicht pausiert er). Bitte versuche es später erneut.";
+      }
+      return "Anmeldung fehlgeschlagen. Bitte versuche es erneut.";
+    }
+
+    function zeigeAnmeldeFehler(text) {
+      const element = document.getElementById("anmelde-fehler");
+      element.textContent = text;
+      element.hidden = false;
+    }
+
+    document.getElementById("anmelde-formular").addEventListener("submit", async function (event) {
+      event.preventDefault();
+      const email = document.getElementById("anmelde-email").value.trim();
+      const passwort = document.getElementById("anmelde-passwort").value;
+      if (!email || !passwort) {
+        zeigeAnmeldeFehler("Bitte E-Mail und Passwort eingeben.");
+        return;
+      }
+      const knopf = document.getElementById("anmelde-btn");
+      knopf.disabled = true;
+      knopf.textContent = "Anmelden …";
+      document.getElementById("anmelde-fehler").hidden = true;
+      try {
+        const client = await ladeSupabase();
+        const { data, error } = await client.auth.signInWithPassword({ email, password: passwort });
+        if (error) {
+          zeigeAnmeldeFehler(uebersetzeAnmeldeFehler(error));
+          return;
+        }
+        nachAnmeldung(data.user);
+      } catch (fehler) {
+        zeigeAnmeldeFehler(uebersetzeAnmeldeFehler(fehler));
+      } finally {
+        knopf.disabled = false;
+        knopf.textContent = "Anmelden";
+      }
+    });
+
+    function nachAnmeldung(nutzer) {
+      // Anderer Nutzer als zuletzt auf diesem Gerät: dessen Warteschlange
+      // gehört nicht zu diesem Konto - neu beginnen (Daten bleiben lokal).
+      if (syncZustand.userId && syncZustand.userId !== nutzer.id) {
+        syncZustand = { ...leererSyncZustand(nutzer.id), uebernahme: syncZustand.uebernahme };
+      }
+      syncZustand.userId = nutzer.id;
+      syncKonto = { userId: nutzer.id, email: nutzer.email || "" };
+      try {
+        localStorage.setItem(SYNC_KONTO_SCHLUESSEL, JSON.stringify(syncKonto));
+        localStorage.removeItem(SYNC_OHNE_KONTO_SCHLUESSEL);
+      } catch (fehler) {
+        // Speicher voll - Anmeldung gilt trotzdem für diese Sitzung
+      }
+      // Erste Anmeldung auf diesem Gerät: lokale Daten erst nach Rückfrage hochladen
+      if (!syncZustand.uebernahme[nutzer.id]) {
+        syncZustand.uebernahme[nutzer.id] = faenge.length > 0 || angeltage.length > 0 ? "offen" : "erledigt";
+      }
+      speichereSyncZustand();
+      schliesseAnmeldeSeite();
+      setzeSyncStatus("bereit");
+      if (uebernahmeStatus() === "offen") {
+        zeigeUebernahmeSeite();
+      } else {
+        synchronisiere();
+      }
+    }
+
+    // ---------- Abmelden ----------
+    // Lokale Daten bleiben auf dem Gerät. Vorher wird noch einmal versucht,
+    // alles Ausstehende zu senden.
+    async function meldeAb() {
+      if (anzahlWartend() > 0 && navigator.onLine !== false) {
+        await synchronisiere();
+      }
+      const offen = anzahlWartend();
+      const frage = offen > 0
+        ? `Abmelden? ${offen} ${offen === 1 ? "Änderung konnte" : "Änderungen konnten"} noch nicht gesendet werden und kommen dann erst nach der nächsten Anmeldung auf den Server. Deine Daten bleiben auf diesem Gerät.`
+        : "Abmelden? Deine Daten bleiben auf diesem Gerät.";
+      if (!confirm(frage)) {
+        return;
+      }
+      abmeldungLaeuft = true;
+      try {
+        const client = await ladeSupabase();
+        await client.auth.signOut({ scope: "local" });
+      } catch (fehler) {
+        entferneGespeicherteSitzung(); // offline: Sitzung trotzdem lokal löschen
+      } finally {
+        abmeldungLaeuft = false;
+      }
+      entferneGespeicherteSitzung();
+      clearTimeout(syncTimer);
+      syncKonto = null;
+      syncZustand = { ...leererSyncZustand(null), uebernahme: syncZustand.uebernahme };
+      speichereSyncZustand();
+      try {
+        localStorage.removeItem(SYNC_KONTO_SCHLUESSEL);
+        localStorage.setItem(SYNC_OHNE_KONTO_SCHLUESSEL, "1");
+      } catch (fehler) {
+        // egal
+      }
+      setzeSyncStatus("bereit");
+    }
+
+    // Die Bibliothek speichert ihre Sitzung unter "sb-<projekt>-auth-token"
+    function entferneGespeicherteSitzung() {
+      try {
+        Object.keys(localStorage)
+          .filter(schluessel => /^sb-.+-auth-token/.test(schluessel))
+          .forEach(schluessel => localStorage.removeItem(schluessel));
+      } catch (fehler) {
+        // nichts zu tun
+      }
+    }
+
+    // ---------- Erste Übernahme der lokalen Daten ----------
+    function zeigeUebernahmeSeite() {
+      const seite = document.getElementById("uebernahme-seite");
+      document.getElementById("uebernahme-text").textContent =
+        `Auf diesem Gerät sind ${faenge.length} ${faenge.length === 1 ? "Fang" : "Fänge"} und ${angeltage.length} `
+        + `${angeltage.length === 1 ? "Angeltag" : "Angeltage"} gespeichert. Sollen sie auf deinen Server übertragen werden?`;
+      document.getElementById("uebernahme-sicherung-status").textContent = "";
+      seite.hidden = false;
+      seite.scrollTop = 0;
+      document.body.classList.add("formular-offen");
+    }
+
+    function schliesseUebernahmeSeite() {
+      document.getElementById("uebernahme-seite").hidden = true;
+      if (!document.querySelector(".formular-seite.offen") && document.getElementById("anmelde-seite").hidden) {
+        document.body.classList.remove("formular-offen");
+      }
+    }
+
+    // Vorhandene Export-Funktion nutzen (Teilen-Menü bzw. Download)
+    async function sichereVorUebernahme() {
+      const vorher = leseZahlAusSpeicher(LETZTE_SICHERUNG_SCHLUESSEL);
+      await exportiereFaenge();
+      const nachher = leseZahlAusSpeicher(LETZTE_SICHERUNG_SCHLUESSEL);
+      document.getElementById("uebernahme-sicherung-status").textContent = nachher && nachher !== vorher
+        ? "Sicherung erstellt. Du kannst jetzt übertragen."
+        : "Es wurde keine Sicherung erstellt.";
+    }
+
+    function bestaetigeUebernahme() {
+      // Alles Lokale vormerken. Beim Abgleich wird trotzdem zuerst geholt:
+      // ist ein Eintrag auf dem Server neuer, gewinnt der Serverstand.
+      faenge.forEach(fang => { syncZustand.warteschlange.fange[String(fang.id)] = true; });
+      angeltage.forEach(tag => { syncZustand.warteschlange.angeltage[String(tag.id)] = true; });
+      if (localStorage.getItem(ANGELTAGE_EINSTELLUNGEN_SCHLUESSEL) !== null) {
+        syncZustand.warteschlange.einstellungen = true;
+      }
+      syncZustand.uebernahme[syncKonto.userId] = "erledigt";
+      speichereSyncZustand();
+      schliesseUebernahmeSeite();
+      setzeSyncStatus("bereit");
+      synchronisiere();
+    }
+
+    function lehneUebernahmeAb() {
+      syncZustand.uebernahme[syncKonto.userId] = "abgelehnt";
+      speichereSyncZustand();
+      schliesseUebernahmeSeite();
+      setzeSyncStatus("bereit");
+      synchronisiere();
+    }
+
+    // ---------- Auslöser ----------
+    window.addEventListener("online", () => planeSync(500));
+    window.addEventListener("offline", () => {
+      if (syncKonto) {
+        setzeSyncStatus("offline");
+      }
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        planeSync(300);
+      }
+    });
+
+    // Beim Start: nie auf das Netz warten - Abgleich läuft im Hintergrund
+    function starteSynchronisation() {
+      aktualisiereSyncAnzeige();
+      if (syncKonto) {
+        if (uebernahmeStatus() === "offen") {
+          zeigeUebernahmeSeite();
+        }
+        synchronisiere();
+        return;
+      }
+      let ohneKonto = false;
+      try {
+        ohneKonto = localStorage.getItem(SYNC_OHNE_KONTO_SCHLUESSEL) === "1";
+      } catch (fehler) {
+        // dann eben fragen
+      }
+      if (!ohneKonto) {
+        zeigeAnmeldeSeite();
+      }
+    }
+
     // ---------------------------------------------------------
     // Beim Öffnen der Seite: heutiges Datum vorausfüllen, Liste vorbereiten und
     // die neue Dashboard-Übersicht als Startansicht anzeigen. Die Formular-Karte,
@@ -6554,10 +10424,17 @@
     // tatsächlich das erste Mal sichtbar werden.
     // ---------------------------------------------------------
     document.getElementById("datum").valueAsDate = new Date();
+    // Fehlende Angeltage aus allen Fängen erzeugen (beim ersten Start nach dem
+    // Update einmalig für alle alten Fänge, danach nur noch Abgleich)
+    synchronisiereAngeltage();
     zeigeFaenge();
     wechsleAnsicht("uebersicht");
     aktualisiereWellenFische();
-    ladeFotosNach();
+    fotosNachladenVersprechen = ladeFotosNach().finally(() => { fotosSindNachgeladen = true; });
+    aktualisiereSicherungsHinweis();
+    fordereDauerhaftenSpeicherAn();
+    pruefeAufUpdate();
+    starteSynchronisation(); // Anmeldeseite bzw. Abgleich im Hintergrund (wartet nie auf das Netz)
   </script>
 
 </body>
